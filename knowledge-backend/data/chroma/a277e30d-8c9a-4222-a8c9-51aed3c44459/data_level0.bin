@@ -1,0 +1,3324 @@
+nn.LayerNorm(self.embed_dim)
+        self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
+        self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
+        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+
+    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
+        layer_head_mask: Optional[torch.Tensor] = None,
+        cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = True,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]]:
+        """
+        Args:
+            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
+            attention_mask (`torch.FloatTensor`): attention mask of size
+                `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
+            encoder_hidden_states (`torch.FloatTensor`):
+                cross attention input to the layer of shape `(batch, seq_len, embed_dim)`
+            encoder_attention_mask (`torch.FloatTensor`): encoder attention mask of size
+                `(batch, 1, tgt_len, src_len)` where padding elements are indicated by very large negative values.
+            layer_head_mask (`torch.FloatTensor`): mask for attention heads in a given layer of size
+                `(encoder_attention_heads,)`.
+            cross_attn_layer_head_mask (`torch.FloatTensor`): mask for cross-attention heads in a given layer of
+                size `(decoder_attention_heads,)`.
+            past_key_values (`Cache`): cached past key and value projection states
+            output_attentions (`bool`, *optional*):
+                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
+                returned tensors for more detail.
+            cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
+                Indices depicting the position of the input sequence tokens in the sequence. It is used to update the
+                cache in the correct position and to infer the complete sequence length.
+        """
+        residual = hidden_states
+
+        # Self Attention
+        hidden_states, self_attn_weights = self.self_attn(
+            hidden_states=hidden_states,
+            past_key_values=past_key_values,
+            attention_mask=attention_mask,
+            layer_head_mask=layer_head_mask,
+            output_attentions=output_attentions,
+            cache_position=cache_position,
+        )
+        hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        hidden_states = residual + hidden_states
+        hidden_states = self.self_attn_layer_norm(hidden_states)
+
+        # Cross-Attention Block
+        cross_attn_weights = None
+        if encoder_hidden_states is not None:
+            residual = hidden_states
+
+            hidden_states, cross_attn_weights = self.encoder_attn(
+                hidden_states=hidden_states,
+                key_value_states=encoder_hidden_states,
+                attention_mask=encoder_attention_mask,
+                layer_head_mask=cross_attn_layer_head_mask,
+                past_key_values=past_key_values,
+                output_attentions=output_attentions,
+                cache_position=cache_position,
+            )
+            hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+            hidden_states = residual + hidden_states
+            hidden_states = self.encoder_attn_layer_norm(hidden_states)
+
+        # Fully Connected
+        residual = hidden_states
+        hidden_states = self.activation_fn(self.fc1(hidden_states))
+        hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        hidden_states = self.fc2(hidden_states)
+        hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        hidden_states = residual + hidden_states
+        hidden_states = self.final_layer_norm(hidden_states)
+
+        outputs = (hidden_states,)
+
+        if output_attentions:
+            outputs += (self_attn_weights, cross_attn_weights)
+
+        return outputs
+
+
+class PLBartDecoder(PLBartPreTrainedModel):
+    """
+    Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a [`PLBartDecoderLayer`]
+
+    Args:
+        config: PLBartConfig
+        embed_tokens (nn.Embedding): output embedding
+    """
+
+    def __init__(self, config: PLBartConfig, embed_tokens: Optional[nn.Embedding] = None):
+        super().__init__(config)
+        self.dropout = config.dropout
+        self.layerdrop = config.decoder_layerdrop
+        self.padding_idx = config.pad_token_id
+        self.max_target_positions = config.max_position_embeddings
+        embed_scale = math.sqrt(config.d_model) if config.scale_embedding else 1.0
+
+        self.embed_tokens = PLBartScaledWordEmbedding(
+            config.vocab_size, config.d_model, self.padding_idx, embed_scale=embed_scale
+        )
+
+        if embed_tokens is not None:
+            self.embed_tokens.weight = embed_tokens.weight
+
+        self.embed_positions = PLBartLearnedPositionalEmbedding(
+            config.max_position_embeddings,
+            config.d_model,
+        )
+        self.layers = nn.ModuleList([PLBartDecoderLayer(config, layer_idx=i) for i in range(config.decoder_layers)])
+
+        self.layernorm_embedding = nn.LayerNorm(config.d_model)
+
+        self.gradient_checkpointing = False
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.LongTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Cache] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> Union[tuple, BaseModelOutputWithPastAndCrossAttentions]:
+        r"""
+        Args:
+            input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+                Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
+                provide it.
+
+                Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+                [`PreTrainedTokenizer.__call__`] for details.
+
+                [What are input IDs?](../glossary#input-ids)
+            attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
+                Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
+
+                - 1 for tokens that are **not masked**,
+                - 0 for tokens that are **masked**.
+
+                [What are attention masks?](../glossary#attention-mask)
+            encoder_hidden_states (`torch.FloatTensor` of shape `(batch_size, encoder_sequence_length, hidden_size)`, *optional*):
+                Sequence of hidden-states at the output of the last layer of the encoder. Used in the cross-attention
+                of the decoder.
+            encoder_attention_mask (`torch.LongTensor` of shape `(batch_size, encoder_sequence_length)`, *optional*):
+                Mask to avoid performing cross-attention on padding tokens indices of encoder input_ids. Mask values
+                selected in `[0, 1]`:
+
+                - 1 for tokens that are **not masked**,
+                - 0 for tokens that are **masked**.
+
+                [What are attention masks?](../glossary#attention-mask)
+            head_mask (`torch.Tensor` of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+                Mask to nullify selected heads of the attention modules. Mask values selected in `[0, 1]`:
+
+                - 1 indicates the head is **not masked**,
+                - 0 indicates the head is **masked**.
+
+            cross_attn_head_mask (`torch.Tensor` of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+                Mask to nullify selected heads of the cross-attention modules in the decoder to avoid performing
+                cross-attention on hidden heads. Mask values selected in `[0, 1]`:
+
+                - 1 indicates the head is **not masked**,
+                - 0 indicates the head is **masked**.
+
+            past_key_values (`Cache`, *optional*, returned when `use_cache=True` is passed or when `config.use_cache=True`):
+                It is a [`~cache_utils.Cache`] instance. For more details, see our [kv cache guide](https://huggingface.co/docs/transformers/en/kv_cache).
+
+                Contains pre-computed hidden-states (key and values in the self-attention blocks and in the
+                cross-attention blocks) that can be used (see `past_key_values` input) to speed up sequential decoding.
+
+                If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids` (those
+                that don't have their past key value states given to this model) of shape `(batch_size, 1)` instead of
+                all `decoder_input_ids` of shape `(batch_size, sequence_length)`.
+            inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
+                Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation.
+                This is useful if you want more control over how to convert `input_ids` indices into associated vectors
+                than the model's internal embedding lookup matrix.
+            output_attentions (`bool`, *optional*):
+                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
+                returned tensors for more detail.
+            output_hidden_states (`bool`, *optional*):
+                Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
+                for more detail.
+            return_dict (`bool`, *optional*):
+                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
+            cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
+                Indices depicting the position of the input sequence tokens in the sequence. It is used to update the
+                cache in the correct position and to infer the complete sequence length.
+        """
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
+        # retrieve input_ids and inputs_embeds
+        if (input_ids is None) ^ (inputs_embeds is not None):
+            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+        elif input_ids is not None:
+            input = input_ids
+            input_shape = input.shape
+            input_ids = input_ids.view(-1, input_shape[-1])
+        elif inputs_embeds is not None:
+            input_shape = inputs_embeds.size()[:-1]
+            input = inputs_embeds[:, :, -1]
+        else:
+            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+
+        if inputs_embeds is None:
+            inputs_embeds = self.embed_tokens(input)
+
+        # initialize `past_key_values`
+        if use_cache and past_key_values is None:
+            past_key_values = (
+                EncoderDecoderCache(DynamicCache(config=self.config), DynamicCache(config=self.config))
+                if encoder_hidden_states is not None
+                else DynamicCache(config=self.config)
+            )
+        if use_cache and isinstance(past_key_values, tuple):
+            logger.warning_once(
+                "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.58.0. "
+                "You should pass an instance of `EncoderDecoderCache` instead, e.g. "
+                "`past_key_values=EncoderDecoderCache.from_legacy_cache(past_key_values)`."
+            )
+            past_key_values = EncoderDecoderCache.from_legacy_cache(past_key_values)
+
+        batch_size, seq_length = inputs_embeds.size()[:-1]
+        past_key_values_length = past_key_values.get_seq_length() if past_key_values is not None else 0
+        if cache_position is None:
+            cache_position = torch.arange(
+                past_key_values_length, past_key_values_length + seq_length, device=inputs_embeds.device
+            )
+
+        if attention_mask is None and not is_torchdynamo_compiling():
+            # required mask seq length can be calculated via length of past cache
+            mask_seq_length = past_key_values_length + seq_length
+            attention_mask = torch.ones(batch_size, mask_seq_length, device=inputs_embeds.device)
+
+        self_attn_cache = (
+            past_key_values.self_attention_cache
+            if isinstance(past_key_values, EncoderDecoderCache)
+            else past_key_values
+        )
+
+        attention_mask = self._update_causal_mask(
+            attention_mask,
+            inputs_embeds,
+            cache_position,
+            self_attn_cache,
+        )
+        encoder_attention_mask = self._update_cross_attn_mask(
+            encoder_hidden_states,
+            encoder_attention_mask,
+            input_shape,
+            inputs_embeds,
+        )
+
+        # embed positions
+        positions = self.embed_positions(input, past_key_values_length, position_ids=cache_position)
+        positions = positions.to(inputs_embeds.device)
+
+        hidden_states = inputs_embeds + positions
+        hidden_states = self.layernorm_embedding(hidden_states)
+
+        hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+
+        # decoder layers
+        all_hidden_states = () if output_hidden_states else None
+        all_self_attns = () if output_attentions else None
+        all_cross_attentions = () if (output_attentions and encoder_hidden_states is not None) else None
+
+        # check if head_mask/cross_attn_head_mask has a correct number of layers specified if desired
+        for attn_mask, mask_name in zip([head_mask, cross_attn_head_mask], ["head_mask", "cross_attn_head_mask"]):
+            if attn_mask is not None:
+                if attn_mask.size()[0] != (len(self.layers)):
+                    raise ValueError(
+                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
+                        f" {head_mask.size()[0]}."
+                    )
+
+        for idx, decoder_layer in enumerate(self.layers):
+            # add LayerDrop (see https://huggingface.co/papers/1909.11556 for description)
+            if output_hidden_states:
+                all_hidden_states += (hidden_states,)
+            if self.training:
+                dropout_probability = torch.rand([])
+                if dropout_probability < self.layerdrop:
+                    continue
+
+            layer_outputs = decoder_layer(
+                hidden_states,
+                attention_mask,
+                encoder_hidden_states,  # as a positional argument for gradient checkpointing
+                encoder_attention_mask=encoder_attention_mask,
+                layer_head_mask=(head_mask[idx] if head_mask is not None else None),
+                cross_attn_layer_head_mask=(cross_attn_head_mask[idx] if cross_attn_head_mask is not None else None),
+                past_key_values=past_key_values,
+                output_attentions=output_attentions,
+                use_cache=use_cache,
+                cache_position=cache_position,
+            )
+            hidden_states = layer_outputs[0]
+            if output_attentions:
+                all_self_attns += (layer_outputs[1],)
+
+                if encoder_hidden_states is not None:
+                    all_cross_attentions += (layer_outputs[2],)
+
+        # add hidden states from the last decoder layer
+        if output_hidden_states:
+            all_hidden_states += (hidden_states,)
+
+        if not return_dict:
+            return tuple(
+                v
+                for v in [hidden_states, past_key_values, all_hidden_states, all_self_attns, all_cross_attentions]
+                if v is not None
+            )
+        return BaseModelOutputWithPastAndCrossAttentions(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_self_attns,
+            cross_attentions=all_cross_attentions,
+        )
+
+
+def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int):
+    """
+    Shift input ids one token to the right, and wrap the last non pad token (the <LID> token) Note that PLBart does not
+    have a single `decoder_start_token_id` in contrast to other Bart-like models.
+    """
+    prev_output_tokens = input_ids.clone()
+
+    if pad_token_id is None:
+        raise ValueError("self.model.config.pad_token_id has to be defined.")
+    # replace possible -100 values in labels by `pad_token_id`
+    prev_output_tokens.masked_fill_(prev_output_tokens == -100, pad_token_id)
+
+    index_of_eos = (prev_output_tokens.ne(pad_token_id).sum(dim=1) - 1).unsqueeze(-1)
+    decoder_start_tokens = prev_output_tokens.gather(1, index_of_eos).squeeze()
+    prev_output_tokens[:, 1:] = prev_output_tokens[:, :-1].clone()
+    prev_output_tokens[:, 0] = decoder_start_tokens
+
+    return prev_output_tokens
+
+
+@auto_docstring
+class PLBartModel(PLBartPreTrainedModel):
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
+    def __init__(self, config: PLBartConfig):
+        super().__init__(config)
+
+        padding_idx, vocab_size = config.pad_token_id, config.vocab_size
+        embed_scale = math.sqrt(config.d_model) if config.scale_embedding else 1.0
+        self.shared = PLBartScaledWordEmbedding(vocab_size, config.d_model, padding_idx, embed_scale=embed_scale)
+
+        self.encoder = PLBartEncoder(config, self.shared)
+        self.decoder = PLBartDecoder(config, self.shared)
+
+        self.init_weights()
+
+    def get_input_embeddings(self):
+        return self.shared
+
+    def set_input_embeddings(self, value):
+        self.shared = value
+        self.encoder.embed_tokens = self.shared
+        self.decoder.embed_tokens = self.shared
+
+    def _tie_weights(self):
+        if self.config.tie_word_embeddings:
+            self._tie_or_clone_weights(self.encoder.embed_tokens, self.shared)
+            self._tie_or_clone_weights(self.decoder.embed_tokens, self.shared)
+
+    def get_encoder(self):
+        return self.encoder
+
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
+        decoder_input_ids: Optional[torch.LongTensor] = None,
+        decoder_attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        decoder_head_mask: Optional[torch.LongTensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[list[torch.FloatTensor]] = None,
+        past_key_values: Optional[Cache] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        decoder_inputs_embeds: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> Union[tuple[torch.Tensor], Seq2SeqModelOutput]:
+        r"""
+        decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
+            Indices of decoder input sequence tokens in the vocabulary.
+
+            Indices can be obtained using [`AutoTokenizer`] or [`PLBartMultiTokenizer`] depending on the checkpoint.
+            See [`PreTrainedTokenizer.encode`] and [`PreTrainedTokenizer.__call__`] for details.
+
+            [What are decoder input IDs?](../glossary#decoder-input-ids)
+
+            PLBart uses a specific language id token as the starting token for `decoder_input_ids` generation that
+            varies according to source and target language, *e.g.* 50003 for *en_XX*, and 50001 for *java*. If
+            `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
+            `past_key_values`).
+
+            For translation and summarization training, `decoder_input_ids` should be provided. If no
+            `decoder_input_ids` is provided, the model will create this tensor by shifting the `input_ids` to the right
+            for denoising pre-training following the paper.
+        decoder_attention_mask (:
+            obj:*torch.LongTensor* of shape `(batch_size, target_sequence_length)`, *optional*):
+            Default behavior:
+            generate a tensor that ignores pad tokens in `decoder_input_ids`. Causal mask will also be used by default.
+        cross_attn_head_mask (:
+            obj:*torch.Tensor* of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+            Mask to nullify
+            selected heads of the cross-attention modules in the decoder. Mask values selected in `[0, 1]`:
+
+            - 1 indicates the head is **not masked**,
+            - 0 indicates the head is **masked**.
+        """
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        # different to other models, PLBart automatically creates decoder_input_ids from
+        # input_ids if no decoder_input_ids are provided
+        if decoder_input_ids is None and decoder_inputs_embeds is None:
+            decoder_input_ids = shift_tokens_right(input_ids, self.config.pad_token_id)
+
+        if encoder_outputs is None:
+            encoder_outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        # If the user passed a tuple for encoder_outputs, we wrap it in a BaseModelOutput when return_dict=True
+        elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
+            encoder_outputs = BaseModelOutput(
+                last_hidden_state=encoder_outputs[0],
+                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
+                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
+            )
+
+        # decoder outputs consists of (dec_features, past_key_values, dec_hidden, dec_attn)
+        decoder_outputs = self.decoder(
+            input_ids=decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            encoder_hidden_states=encoder_outputs[0],
+            encoder_attention_mask=attention_mask,
+            head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            past_key_values=past_key_values,
+            inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            cache_position=cache_position,
+        )
+
+        if not return_dict:
+            return decoder_outputs + encoder_outputs
+
+        return Seq2SeqModelOutput(
+            last_hidden_state=decoder_outputs.last_hidden_state,
+            past_key_values=decoder_outputs.past_key_values,
+            decoder_hidden_states=decoder_outputs.hidden_states,
+            decoder_attentions=decoder_outputs.attentions,
+            cross_attentions=decoder_outputs.cross_attentions,
+            encoder_last_hidden_state=encoder_outputs.last_hidden_state,
+            encoder_hidden_states=encoder_outputs.hidden_states,
+            encoder_attentions=encoder_outputs.attentions,
+        )
+
+
+@auto_docstring(
+    custom_intro="""
+    The PLBART Model with a language modeling head. Can be used for code-to-text, text-to-code and code-to-code.
+    """
+)
+class PLBartForConditionalGeneration(PLBartPreTrainedModel, GenerationMixin):
+    base_model_prefix = "model"
+    _keys_to_ignore_on_load_missing = ["final_logits_bias"]
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight", "lm_head.weight"]
+
+    def __init__(self, config: PLBartConfig):
+        super().__init__(config)
+        self.model = PLBartModel(config)
+        self.register_buffer("final_logits_bias", torch.zeros((1, self.model.shared.num_embeddings)))
+        self.lm_head = nn.Linear(config.d_model, self.model.shared.num_embeddings, bias=False)
+
+        self.init_weights()
+
+    def get_encoder(self):
+        return self.model.get_encoder()
+
+    def get_decoder(self):
+        return self.model.get_decoder()
+
+    def resize_token_embeddings(
+        self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None, mean_resizing: bool = True
+    ) -> nn.Embedding:
+        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of, mean_resizing)
+        self._resize_final_logits_bias(new_embeddings.weight.shape[0])
+        return new_embeddings
+
+    def _resize_final_logits_bias(self, new_num_tokens: int) -> None:
+        old_num_tokens = self.final_logits_bias.shape[-1]
+        if new_num_tokens <= old_num_tokens:
+            new_bias = self.final_logits_bias[:, :new_num_tokens]
+        else:
+            extra_bias = torch.zeros((1, new_num_tokens - old_num_tokens), device=self.final_logits_bias.device)
+            new_bias = torch.cat([self.final_logits_bias, extra_bias], dim=1)
+        self.register_buffer("final_logits_bias", new_bias)
+
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
+        decoder_input_ids: Optional[torch.LongTensor] = None,
+        decoder_attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        decoder_head_mask: Optional[torch.LongTensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[list[torch.FloatTensor]] = None,
+        past_key_values: Optional[Cache] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        decoder_inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> Union[tuple[torch.Tensor], Seq2SeqLMOutput]:
+        r"""
+        decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
+            Indices of decoder input sequence tokens in the vocabulary.
+
+            Indices can be obtained using [`AutoTokenizer`] or [`PLBartMultiTokenizer`] depending on the checkpoint.
+            See [`PreTrainedTokenizer.encode`] and [`PreTrainedTokenizer.__call__`] for details.
+
+            [What are decoder input IDs?](../glossary#decoder-input-ids)
+
+            PLBart uses a specific language id token as the starting token for `decoder_input_ids` generation that
+            varies according to source and target language, *e.g.* 50003 for *en_XX*, and 50001 for *java*. If
+            `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
+            `past_key_values`).
+
+            For translation and summarization training, `decoder_input_ids` should be provided. If no
+            `decoder_input_ids` is provided, the model will create this tensor by shifting the `input_ids` to the right
+            for denoising pre-training following the paper.
+        decoder_attention_mask (:
+            obj:*torch.LongTensor* of shape `(batch_size, target_sequence_length)`, *optional*):
+            Default behavior:
+            generate a tensor that ignores pad tokens in `decoder_input_ids`. Causal mask will also be used by default.
+        cross_attn_head_mask (:
+            obj:*torch.Tensor* of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+            Mask to nullify
+            selected heads of the cross-attention modules in the decoder. Mask values selected in `[0, 1]`:
+
+            - 1 indicates the head is **not masked**,
+            - 0 indicates the head is **masked**.
+        labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
+            config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
+            (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
+
+        Example Mask-filling:
+
+        ```python
+        >>> from transformers import AutoTokenizer, PLBartForConditionalGeneration
+
+        >>> model = PLBartForConditionalGeneration.from_pretrained("uclanlp/plbart-base")
+        >>> tokenizer = AutoTokenizer.from_pretrained("uclanlp/plbart-base")
+
+        >>> # en_XX is the language symbol id <LID> for English
+        >>> TXT = "<s> Is 0 the <mask> Fibonacci number ? </s> en_XX"
+        >>> input_ids = tokenizer([TXT], add_special_tokens=False, return_tensors="pt").input_ids
+
+        >>> logits = model(input_ids).logits
+        >>> masked_index = (input_ids[0] == tokenizer.mask_token_id).nonzero().item()
+        >>> probs = logits[0, masked_index].softmax(dim=0)
+        >>> values, predictions = probs.topk(5)
+
+        >>> tokenizer.decode(predictions).split()
+        ['first', 'same', 'highest', 'result', 'number']
+        ```
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if labels is not None:
+            if decoder_input_ids is None and decoder_inputs_embeds is None:
+                decoder_input_ids = shift_tokens_right(labels, self.config.pad_token_id)
+
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            encoder_outputs=encoder_outputs,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            cache_position=cache_position,
+        )
+        lm_logits = self.lm_head(outputs[0])
+        lm_logits = lm_logits + self.final_logits_bias.to(lm_logits.device)
+
+        masked_lm_loss = None
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+
+        if not return_dict:
+            output = (lm_logits,) + outputs[1:]
+            return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
+
+        return Seq2SeqLMOutput(
+            loss=masked_lm_loss,
+            logits=lm_logits,
+            past_key_values=outputs.past_key_values,
+            decoder_hidden_states=outputs.decoder_hidden_states,
+            decoder_attentions=outputs.decoder_attentions,
+            cross_attentions=outputs.cross_attentions,
+            encoder_last_hidden_state=outputs.encoder_last_hidden_state,
+            encoder_hidden_states=outputs.encoder_hidden_states,
+            encoder_attentions=outputs.encoder_attentions,
+        )
+
+    def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
+        return shift_tokens_right(labels, self.config.pad_token_id)
+
+
+class PLBartClassificationHead(nn.Module):
+    """Head for sentence-level classification tasks."""
+
+    def __init__(
+        self,
+        input_dim: int,
+        inner_dim: int,
+        num_classes: int,
+        pooler_dropout: float,
+    ):
+        super().__init__()
+        self.dense = nn.Linear(input_dim, inner_dim)
+        self.dropout = nn.Dropout(p=pooler_dropout)
+        self.out_proj = nn.Linear(inner_dim, num_classes)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.dense(hidden_states)
+        hidden_states = torch.tanh(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.out_proj(hidden_states)
+        return hidden_states
+
+
+@auto_docstring(
+    custom_intro="""
+    PLBart model with a sequence classification/head on top (a linear layer on top of the pooled output) e.g.
+    for GLUE tasks.
+    """
+)
+class PLBartForSequenceClassification(PLBartPreTrainedModel):
+    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight"]
+
+    def __init__(self, config: PLBartConfig, **kwargs):
+        super().__init__(config, **kwargs)
+        self.model = PLBartModel(config)
+        self.classification_head = PLBartClassificationHead(
+            config.d_model,
+            config.d_model,
+            config.num_labels,
+            config.classifier_dropout,
+        )
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        decoder_input_ids: Optional[torch.LongTensor] = None,
+        decoder_attention_mask: Optional[torch.LongTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        decoder_head_mask: Optional[torch.Tensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[list[torch.FloatTensor]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        decoder_inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> Union[tuple, Seq2SeqSequenceClassifierOutput]:
+        r"""
+        decoder_input_ids (`torch.LongTensor` of shape `(batch_size, target_sequence_length)`, *optional*):
+            Indices of decoder input sequence tokens in the vocabulary.
+
+            Indices can be obtained using [`AutoTokenizer`] or [`PLBartMultiTokenizer`] depending on the checkpoint.
+            See [`PreTrainedTokenizer.encode`] and [`PreTrainedTokenizer.__call__`] for details.
+
+            [What are decoder input IDs?](../glossary#decoder-input-ids)
+
+            PLBart uses a specific language id token as the starting token for `decoder_input_ids` generation that
+            varies according to source and target language, *e.g.* 50003 for *en_XX*, and 50001 for *java*. If
+            `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
+            `past_key_values`).
+
+            For translation and summarization training, `decoder_input_ids` should be provided. If no
+            `decoder_input_ids` is provided, the model will create this tensor by shifting the `input_ids` to the right
+            for denoising pre-training following the paper.
+        decoder_attention_mask (:
+            obj:*torch.LongTensor* of shape `(batch_size, target_sequence_length)`, *optional*):
+            Default behavior:
+            generate a tensor that ignores pad tokens in `decoder_input_ids`. Causal mask will also be used by default.
+        cross_attn_head_mask (:
+            obj:*torch.Tensor* of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+            Mask to nullify
+            selected heads of the cross-attention modules in the decoder. Mask values selected in `[0, 1]`:
+
+            - 1 indicates the head is **not masked**,
+            - 0 indicates the head is **masked**.
+        labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
+            Labels for computing the sequence classification/regression loss. Indices should be in `[0, ...,
+            config.num_labels - 1]`. If `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        if labels is not None:
+            use_cache = False
+
+        if input_ids is None and inputs_embeds is not None:
+            raise NotImplementedError(
+                f"Passing input embeddings is currently not supported for {self.__class__.__name__}"
+            )
+
+        outputs = self.model(
+            input_ids,
+            attention_mask=attention_mask,
+            decoder_input_ids=decoder_input_ids,
+            decoder_attention_mask=decoder_attention_mask,
+            head_mask=head_mask,
+            decoder_head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            encoder_outputs=encoder_outputs,
+            inputs_embeds=inputs_embeds,
+            decoder_inputs_embeds=decoder_inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            cache_position=cache_position,
+        )
+        hidden_states = outputs[0]  # last hidden state
+
+        eos_mask = input_ids.eq(self.config.eos_token_id).to(hidden_states.device)
+
+        if len(torch.unique_consecutive(eos_mask.sum(1))) > 1:
+            raise ValueError("All examples must have the same number of <eos> tokens.")
+        sentence_representation = hidden_states[eos_mask, :].view(hidden_states.size(0), -1, hidden_states.size(-1))[
+            :, -1, :
+        ]
+        logits = self.classification_head(sentence_representation)
+
+        loss = None
+        if labels is not None:
+            labels = labels.to(logits.device)
+            if self.config.problem_type is None:
+                if self.config.num_labels == 1:
+                    self.config.problem_type = "regression"
+                elif self.config.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                    self.config.problem_type = "single_label_classification"
+                else:
+                    self.config.problem_type = "multi_label_classification"
+
+            if self.config.problem_type == "regression":
+                loss_fct = MSELoss()
+                if self.config.num_labels == 1:
+                    loss = loss_fct(logits.squeeze(), labels.squeeze())
+                else:
+                    loss = loss_fct(logits, labels)
+            elif self.config.problem_type == "single_label_classification":
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
+            elif self.config.problem_type == "multi_label_classification":
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+        if not return_dict:
+            output = (logits,) + outputs[1:]
+            return ((loss,) + output) if loss is not None else output
+
+        return Seq2SeqSequenceClassifierOutput(
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            decoder_hidden_states=outputs.decoder_hidden_states,
+            decoder_attentions=outputs.decoder_attentions,
+            cross_attentions=outputs.cross_attentions,
+            encoder_last_hidden_state=outputs.encoder_last_hidden_state,
+            encoder_hidden_states=outputs.encoder_hidden_states,
+            encoder_attentions=outputs.encoder_attentions,
+        )
+
+
+class PLBartDecoderWrapper(PLBartPreTrainedModel):
+    """
+    This wrapper class is a helper class to correctly load pretrained checkpoints when the causal language model is
+    used in combination with the [`EncoderDecoderModel`] framework.
+    """
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.decoder = PLBartDecoder(config)
+
+    def forward(self, *args, **kwargs):
+        return self.decoder(*args, **kwargs)
+
+
+@auto_docstring(
+    custom_intro="""
+    PLBART decoder with a language modeling head on top (linear layer with weights tied to the input embeddings).
+    """
+)
+class PLBartForCausalLM(PLBartPreTrainedModel, GenerationMixin):
+    _tied_weights_keys = ["lm_head.weight"]
+
+    def __init__(self, config):
+        config.is_decoder = True
+        config.is_encoder_decoder = False
+        super().__init__(config)
+        self.model = PLBartDecoderWrapper(config)
+
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_input_embeddings(self):
+        return self.model.decoder.embed_tokens
+
+    def set_input_embeddings(self, value):
+        self.model.decoder.embed_tokens = value
+
+    def set_decoder(self, decoder):
+        self.model.decoder = decoder
+
+    def get_decoder(self):
+        return self.model.decoder
+
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Cache] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> Union[tuple, CausalLMOutputWithCrossAttentions]:
+        r"""
+        cross_attn_head_mask (`torch.Tensor` of shape `(decoder_layers, decoder_attention_heads)`, *optional*):
+            Mask to nullify selected heads of the cross-attention modules. Mask values selected in `[0, 1]`:
+
+            - 1 indicates the head is **not masked**,
+            - 0 indicates the head is **masked**.
+        labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
+            config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
+            (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
+
+        Example:
+
+        ```python
+        >>> from transformers import AutoTokenizer, PLBartForCausalLM
+
+        >>> tokenizer = AutoTokenizer.from_pretrained("uclanlp/plbart-base")
+        >>> model = PLBartForCausalLM.from_pretrained("uclanlp/plbart-base", add_cross_attention=False)
+        >>> assert model.config.is_decoder, f"{model.__class__} has to be configured as a decoder."
+        >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+        >>> outputs = model(**inputs)
+
+        >>> logits = outputs.logits
+        >>> expected_shape = [1, inputs.input_ids.shape[-1], model.config.vocab_size]
+        >>> list(logits.shape) == expected_shape
+        True
+        ```"""
+
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
+        outputs = self.model.decoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
+            head_mask=head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            cache_position=cache_position,
+        )
+
+        logits = self.lm_head(outputs[0])
+
+        loss = None
+        if labels is not None:
+            labels = labels.to(logits.device)
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.config.vocab_size), labels.view(-1))
+
+        if not return_dict:
+            output = (logits,) + outputs[1:]
+            return (loss,) + output if loss is not None else output
+
+        return CausalLMOutputWithCrossAttentions(
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+            cross_attentions=outputs.cross_attentions,
+        )
+
+
+__all__ = [
+    "PLBartForCausalLM",
+    "PLBartForConditionalGeneration",
+    "PLBartForSequenceClassification",
+    "PLBartModel",
+    "PLBartPreTrainedModel",
+]
+    e   _   d   i   m       =       F   a   l   s   e   
+                                   n   u   m   _   t   e   x   t       =       1   
+                                   i   f       t   e   x   t   .   n   d   i   m       =   =       3   :   
+                                                   n   u   m   _   t   e   x   t       =       t   e   x   t   .   s   h   a   p   e   [   1   ]   
+                                                   b   a   t   c   h   _   s   i   z   e   ,       n   u   m   _   t   e   x   t   ,       h   i   d   d   e   n   _   d   i   m       =       t   e   x   t   .   s   h   a   p   e   
+                                                   t   e   x   t       =       t   e   x   t   .   r   e   s   h   a   p   e   (   b   a   t   c   h   _   s   i   z   e       *       n   u   m   _   t   e   x   t   ,       h   i   d   d   e   n   _   d   i   m   )   
+                                                   s   q   u   e   e   z   e   _   d   i   m       =       T   r   u   e   
+   
+                                   #       [   b   a   t   c   h   _   s   i   z   e   ,       n   u   m   _   c   h   a   n   n   e   l   s   ]   
+                                   e   n   c   o   d   e   d   _   t   e   x   t       =       s   e   l   f   .   t   e   x   t   _   e   n   c   o   d   e   r   (   t   e   x   t   )   
+   
+                                   t   e   x   t   _   q   u   e   r   i   e   s       =       s   e   l   f   .   t   e   x   t   _   p   r   o   j   e   c   t   o   r   (   e   n   c   o   d   e   d   _   t   e   x   t   )   
+   
+                                   i   f       s   q   u   e   e   z   e   _   d   i   m   :   
+                                                   _   ,       h   i   d   d   e   n   _   d   i   m       =       t   e   x   t   _   q   u   e   r   i   e   s   .   s   h   a   p   e   
+                                                   t   e   x   t   _   q   u   e   r   i   e   s       =       t   e   x   t   _   q   u   e   r   i   e   s   .   r   e   s   h   a   p   e   (   b   a   t   c   h   _   s   i   z   e   ,       n   u   m   _   t   e   x   t   ,       h   i   d   d   e   n   _   d   i   m   )   
+                                                   i   f       s   e   l   f   .   p   r   o   m   p   t   _   c   t   x       i   s       n   o   t       N   o   n   e   :   
+                                                                   t   e   x   t   _   q   u   e   r   i   e   s   _   c   t   x       =       s   e   l   f   .   p   r   o   m   p   t   _   c   t   x   .   w   e   i   g   h   t   .   u   n   s   q   u   e   e   z   e   (   0   )   .   r   e   p   e   a   t   (   t   e   x   t   _   q   u   e   r   i   e   s   .   s   h   a   p   e   [   0   ]   ,       1   ,       1   )   
+                                                                   t   e   x   t   _   q   u   e   r   i   e   s       =       t   o   r   c   h   .   c   a   t   (   [   t   e   x   t   _   q   u   e   r   i   e   s   ,       t   e   x   t   _   q   u   e   r   i   e   s   _   c   t   x   ]   ,       d   i   m   =   1   )   
+   
+                                   r   e   t   u   r   n       t   e   x   t   _   q   u   e   r   i   e   s   
+   
+   
+   c   l   a   s   s       O   n   e   F   o   r   m   e   r   T   a   s   k   M   o   d   e   l   (   n   n   .   M   o   d   u   l   e   )   :   
+                   d   e   f       _   _   i   n   i   t   _   _   (   s   e   l   f   ,       c   o   n   f   i   g   :       O   n   e   F   o   r   m   e   r   C   o   n   f   i   g   )   :   
+                                   s   u   p   e   r   (   )   .   _   _   i   n   i   t   _   _   (   )   
+                                   s   e   l   f   .   t   a   s   k   _   m   l   p       =       O   n   e   F   o   r   m   e   r   M   L   P   P   r   e   d   i   c   t   i   o   n   H   e   a   d   (   
+                                                   c   o   n   f   i   g   .   t   a   s   k   _   s   e   q   _   l   e   n   ,   
+                                                   c   o   n   f   i   g   .   h   i   d   d   e   n   _   d   i   m   ,   
+                                                   c   o   n   f   i   g   .   h   i   d   d   e   n   _   d   i   m   ,   
+                                                   2   ,   
+                                   )   
+   
+                   d   e   f       f   o   r   w   a   r   d   (   s   e   l   f   ,       i   n   p   u   t   s   :       T   e   n   s   o   r   )       -   >       T   e   n   s   o   r   :   
+                                   t   a   s   k   _   t   o   k   e   n   s       =       s   e   l   f   .   t   a   s   k   _   m   l   p   (   i   n   p   u   t   s   )   
+                                   r   e   t   u   r   n       t   a   s   k   _   t   o   k   e   n   s   
+   
+   
+   @   a   u   t   o   _   d   o   c   s   t   r   i   n   g   
+   c   l   a   s   s       O   n   e   F   o   r   m   e   r   P   r   e   T   r   a   i   n   e   d   M   o   d   e   l   (   P   r   e   T   r   a   i   n   e   d   M   o   d   e   l   )   :   
+                   c   o   n   f   i   g   :       O   n   e   F   o   r   m   e   r   C   o   n   f   i   g   
+                   b   a   s   e   _   m   o   d   e   l   _   p   r   e   f   i   x       =       "   m   o   d   e   l   "   
+                   m   a   i   n   _   i   n   p   u   t   _   n   a   m   e       =       "   p   i   x   e   l   _   v   a   l   u   e   s   "   
+   
+                   d   e   f       _   i   n   i   t   _   w   e   i   g   h   t   s   (   s   e   l   f   ,       m   o   d   u   l   e   :       n   n   .   M   o   d   u   l   e   )   :   
+                                   x   a   v   i   e   r   _   s   t   d       =       s   e   l   f   .   c   o   n   f   i   g   .   i   n   i   t   _   x   a   v   i   e   r   _   s   t   d   
+                                   s   t   d       =       s   e   l   f   .   c   o   n   f   i   g   .   i   n   i   t   _   s   t   d   
+                                   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   T   r   a   n   s   f   o   r   m   e   r   M   o   d   u   l   e   )   :   
+                                                   i   f       m   o   d   u   l   e   .   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   s       i   s       n   o   t       N   o   n   e   :   
+                                                                   f   o   r       i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n       i   n       m   o   d   u   l   e   .   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   s   :   
+                                                                                   i   f       n   o   t       i   s   i   n   s   t   a   n   c   e   (   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   ,       n   n   .   S   e   q   u   e   n   t   i   a   l   )   :   
+                                                                                                   n   n   .   i   n   i   t   .   x   a   v   i   e   r   _   u   n   i   f   o   r   m   _   (   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   .   w   e   i   g   h   t   ,       g   a   i   n   =   x   a   v   i   e   r   _   s   t   d   )   
+                                                                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   .   b   i   a   s   ,       0   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   T   r   a   n   s   f   o   r   m   e   r   D   e   c   o   d   e   r   )   :   
+                                                   n   n   .   i   n   i   t   .   x   a   v   i   e   r   _   u   n   i   f   o   r   m   _   (   m   o   d   u   l   e   .   q   u   e   r   y   _   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   .   w   e   i   g   h   t   ,       g   a   i   n   =   x   a   v   i   e   r   _   s   t   d   )   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   q   u   e   r   y   _   i   n   p   u   t   _   p   r   o   j   e   c   t   i   o   n   .   b   i   a   s   ,       0   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   P   i   x   e   l   D   e   c   o   d   e   r   E   n   c   o   d   e   r   M   u   l   t   i   s   c   a   l   e   D   e   f   o   r   m   a   b   l   e   A   t   t   e   n   t   i   o   n   )   :   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   s   a   m   p   l   i   n   g   _   o   f   f   s   e   t   s   .   w   e   i   g   h   t   .   d   a   t   a   ,       0   .   0   )   
+                                                   t   h   e   t   a   s       =       t   o   r   c   h   .   a   r   a   n   g   e   (   m   o   d   u   l   e   .   n   _   h   e   a   d   s   ,       d   t   y   p   e   =   t   o   r   c   h   .   i   n   t   6   4   )   .   f   l   o   a   t   (   )       *       (   2   .   0       *       m   a   t   h   .   p   i       /       m   o   d   u   l   e   .   n   _   h   e   a   d   s   )   
+                                                   g   r   i   d   _   i   n   i   t       =       t   o   r   c   h   .   s   t   a   c   k   (   [   t   h   e   t   a   s   .   c   o   s   (   )   ,       t   h   e   t   a   s   .   s   i   n   (   )   ]   ,       -   1   )   
+                                                   g   r   i   d   _   i   n   i   t       =       (   
+                                                                   (   g   r   i   d   _   i   n   i   t       /       g   r   i   d   _   i   n   i   t   .   a   b   s   (   )   .   m   a   x   (   -   1   ,       k   e   e   p   d   i   m   =   T   r   u   e   )   [   0   ]   )   
+                                                                   .   v   i   e   w   (   m   o   d   u   l   e   .   n   _   h   e   a   d   s   ,       1   ,       1   ,       2   )   
+                                                                   .   r   e   p   e   a   t   (   1   ,       m   o   d   u   l   e   .   n   _   l   e   v   e   l   s   ,       m   o   d   u   l   e   .   n   _   p   o   i   n   t   s   ,       1   )   
+                                                   )   
+                                                   f   o   r       i       i   n       r   a   n   g   e   (   m   o   d   u   l   e   .   n   _   p   o   i   n   t   s   )   :   
+                                                                   g   r   i   d   _   i   n   i   t   [   :   ,       :   ,       i   ,       :   ]       *   =       i       +       1   
+                                                   w   i   t   h       t   o   r   c   h   .   n   o   _   g   r   a   d   (   )   :   
+                                                                   m   o   d   u   l   e   .   s   a   m   p   l   i   n   g   _   o   f   f   s   e   t   s   .   b   i   a   s       =       n   n   .   P   a   r   a   m   e   t   e   r   (   g   r   i   d   _   i   n   i   t   .   v   i   e   w   (   -   1   )   )   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   a   t   t   e   n   t   i   o   n   _   w   e   i   g   h   t   s   .   w   e   i   g   h   t   .   d   a   t   a   ,       0   .   0   )   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   a   t   t   e   n   t   i   o   n   _   w   e   i   g   h   t   s   .   b   i   a   s   .   d   a   t   a   ,       0   .   0   )   
+                                                   n   n   .   i   n   i   t   .   x   a   v   i   e   r   _   u   n   i   f   o   r   m   _   (   m   o   d   u   l   e   .   v   a   l   u   e   _   p   r   o   j   .   w   e   i   g   h   t   .   d   a   t   a   )   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   v   a   l   u   e   _   p   r   o   j   .   b   i   a   s   .   d   a   t   a   ,       0   .   0   )   
+                                                   n   n   .   i   n   i   t   .   x   a   v   i   e   r   _   u   n   i   f   o   r   m   _   (   m   o   d   u   l   e   .   o   u   t   p   u   t   _   p   r   o   j   .   w   e   i   g   h   t   .   d   a   t   a   )   
+                                                   n   n   .   i   n   i   t   .   c   o   n   s   t   a   n   t   _   (   m   o   d   u   l   e   .   o   u   t   p   u   t   _   p   r   o   j   .   b   i   a   s   .   d   a   t   a   ,       0   .   0   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   P   i   x   e   l   D   e   c   o   d   e   r   )   :   
+                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   m   o   d   u   l   e   .   l   e   v   e   l   _   e   m   b   e   d   ,       s   t   d   =   0   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       (   O   n   e   F   o   r   m   e   r   T   r   a   n   s   f   o   r   m   e   r   D   e   c   o   d   e   r   L   a   y   e   r   ,       O   n   e   F   o   r   m   e   r   T   r   a   n   s   f   o   r   m   e   r   D   e   c   o   d   e   r   Q   u   e   r   y   T   r   a   n   s   f   o   r   m   e   r   )   )   :   
+                                                   f   o   r       p       i   n       m   o   d   u   l   e   .   p   a   r   a   m   e   t   e   r   s   (   )   :   
+                                                                   i   f       p   .   d   i   m   (   )       >       1   :   
+                                                                                   n   n   .   i   n   i   t   .   x   a   v   i   e   r   _   u   n   i   f   o   r   m   _   (   p   ,       g   a   i   n   =   x   a   v   i   e   r   _   s   t   d   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   T   e   x   t   T   r   a   n   s   f   o   r   m   e   r   )   :   
+                                                   p   r   o   j   _   s   t   d       =       (   m   o   d   u   l   e   .   w   i   d   t   h   *   *   -   0   .   5   )       *       (   (   2       *       m   o   d   u   l   e   .   n   u   m   _   l   a   y   e   r   s   )       *   *       -   0   .   5   )   
+                                                   a   t   t   n   _   s   t   d       =       m   o   d   u   l   e   .   w   i   d   t   h   *   *   -   0   .   5   
+                                                   f   c   _   s   t   d       =       (   2       *       m   o   d   u   l   e   .   w   i   d   t   h   )       *   *       -   0   .   5   
+                                                   f   o   r       l   a   y   e   r       i   n       m   o   d   u   l   e   .   l   a   y   e   r   s   :   
+                                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   l   a   y   e   r   .   s   e   l   f   _   a   t   t   n   .   i   n   _   p   r   o   j   _   w   e   i   g   h   t   ,       s   t   d   =   a   t   t   n   _   s   t   d   )   
+                                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   l   a   y   e   r   .   s   e   l   f   _   a   t   t   n   .   o   u   t   _   p   r   o   j   .   w   e   i   g   h   t   ,       s   t   d   =   p   r   o   j   _   s   t   d   )   
+                                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   l   a   y   e   r   .   m   l   p   .   f   c   1   .   w   e   i   g   h   t   ,       s   t   d   =   f   c   _   s   t   d   )   
+                                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   l   a   y   e   r   .   m   l   p   .   f   c   2   .   w   e   i   g   h   t   ,       s   t   d   =   p   r   o   j   _   s   t   d   )   
+                                   e   l   i   f       i   s   i   n   s   t   a   n   c   e   (   m   o   d   u   l   e   ,       O   n   e   F   o   r   m   e   r   T   e   x   t   E   n   c   o   d   e   r   )   :   
+                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l   _   (   m   o   d   u   l   e   .   t   o   k   e   n   _   e   m   b   e   d   d   i   n   g   .   w   e   i   g   h   t   ,       s   t   d   =   0   .   0   2   )   
+                                                   n   n   .   i   n   i   t   .   n   o   r   m   a   l            #c   Œñ      ÿÿÿÿÿÿÿÿ# coding=utf-8
+# Copyright 2024 Meta and The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""PyTorch Hiera model."""
+
+import math
+from dataclasses import dataclass
+from typing import Optional, Union
+
+import torch
+from torch import nn
+
+from ...activations import ACT2FN
+from ...modeling_layers import GradientCheckpointingLayer
+from ...modeling_outputs import (
+    BackboneOutput,
+    BaseModelOutput,
+    BaseModelOutputWithPooling,
+    ImageClassifierOutput,
+    ModelOutput,
+)
+from ...modeling_utils import PreTrainedModel
+from ...utils import auto_docstring, logging, torch_int
+from ...utils.backbone_utils import BackboneMixin
+from .configuration_hiera import HieraConfig
+
+
+logger = logging.get_logger(__name__)
+
+
+@dataclass
+@auto_docstring(
+    custom_intro="""
+    Hiera encoder's outputs, with potential hidden states and attentions.
+    """
+)
+class HieraEncoderOutput(ModelOutput):
+    r"""
+    reshaped_hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each stage) of
+        shape `(batch_size, height, width, hidden_size)`. These are the reshaped and re-rolled hidden states of the model.
+
+        Hidden-states of the model at the output of each layer plus the initial embedding outputs reshaped to
+        include the spatial dimensions.
+    """
+
+    last_hidden_state: Optional[torch.FloatTensor] = None
+    hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+    attentions: Optional[tuple[torch.FloatTensor, ...]] = None
+    reshaped_hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+
+
+@dataclass
+@auto_docstring(
+    custom_intro="""
+    Hiera model's outputs that also contains a pooling of the last hidden states.
+    """
+)
+class HieraModelOutput(ModelOutput):
+    r"""
+    pooler_output (`torch.FloatTensor` of shape `(batch_size, hidden_size)`, *optional*, returned when `add_pooling_layer=True` is passed):
+        Average pooling of the last layer hidden-state.
+    bool_masked_pos (`torch.BoolTensor` of shape `(batch_size, sequence_length)`):
+        Tensor indicating which patches are masked (0) and which are not (1).
+    ids_restore (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+        Tensor containing the original index of the (shuffled) masked patches.
+    reshaped_hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each stage) of
+        shape `(batch_size, height, width, hidden_size)`. These are the reshaped and re-rolled hidden states of the model.
+
+        Hidden-states of the model at the output of each layer plus the initial embedding outputs reshaped to
+        include the spatial dimensions.
+    """
+
+    last_hidden_state: Optional[torch.FloatTensor] = None
+    pooler_output: Optional[torch.FloatTensor] = None
+    bool_masked_pos: Optional[torch.BoolTensor] = None
+    ids_restore: Optional[torch.LongTensor] = None
+    hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+    attentions: Optional[tuple[torch.FloatTensor, ...]] = None
+    reshaped_hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+
+
+@dataclass
+@auto_docstring(
+    custom_intro="""
+    Hiera image classification outputs.
+    """
+)
+class HieraForImageClassificationOutput(ImageClassifierOutput):
+    r"""
+    loss (`torch.FloatTensor` of shape `(1,)`, `optional`):
+        Loss value for the training task.
+    logits (`torch.FloatTensor` of shape `(batch_size, num_labels)`):
+        Prediction scores of the classification head (logits of the output layer).
+    hidden_states (`tuple(torch.FloatTensor)`, `optional`):
+        Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each stage) of
+        shape `(batch_size, sequence_length, hidden_size)`. These are the unrolled hidden states of the model.
+
+        Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+    attentions (`tuple(torch.FloatTensor)`, `optional`):
+        Tuple of `torch.FloatTensor` (one for each stage) of shape `(batch_size, num_heads, sequence_length,
+        sequence_length)`.
+
+        Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+        heads.
+    reshaped_hidden_states (`tuple(torch.FloatTensor)`, `optional`):
+        Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each stage) of
+        shape `(batch_size, height, width, hidden_size)`. These are the reshaped and re-rolled hidden states of the model.
+
+        Hidden-states of the model at the output of each layer plus the initial embedding outputs reshaped to
+        include the spatial dimensions.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    logits: Optional[torch.FloatTensor] = None
+    hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+    attentions: Optional[tuple[torch.FloatTensor, ...]] = None
+    reshaped_hidden_states: Optional[tuple[torch.FloatTensor, ...]] = None
+
+
+@dataclass
+@auto_docstring(
+    custom_intro="""
+    Class for HieraForPreTraining's outputs, with potential hidden states and attentions.
+    """
+)
+class HieraForPreTrainingOutput(ModelOutput):
+    r"""
+    loss (`torch.FloatTensor` of shape `(1,)`):
+        Pixel reconstruction loss.
+    logits (`torch.FloatTensor` of shape `(batch_size, sequence_length, patch_size ** 2 * num_channels)`):
+        Pixel reconstruction logits.
+    bool_masked_pos (`torch.BoolTensor` of shape `(batch_size, sequence_length)`):
+        Tensor indicating which patches are masked (0) and which are not (1).
+    ids_restore (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+        Tensor containing the original index of the (shuffled) masked patches.
+    reshaped_hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each layer) of
+        shape `(batch_size, height, width, hidden_size)`. Hidden-states of the model at the output of each layer
+        plus the initial embedding outputs reshaped to include the spatial dimensions.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    logits: Optional[torch.FloatTensor] = None
+    bool_masked_pos: Optional[torch.BoolTensor] = None
+    ids_restore: Optional[torch.LongTensor] = None
+    hidden_states: Optional[tuple[torch.FloatTensor]] = None
+    attentions: Optional[tuple[torch.FloatTensor]] = None
+    reshaped_hidden_states: Optional[tuple[torch.FloatTensor]] = None
+
+
+class HieraPatchEmbeddings(nn.Module):
+    """
+    This class turns `pixel_values` of shape `(batch_size, num_channels, height, width)` into the initial
+    `hidden_states` (patch embeddings) of shape `(batch_size, seq_length, hidden_size)` to be consumed by a
+    Transformer.
+    """
+
+    def __init__(self, config, is_mae: bool = False):
+        super().__init__()
+
+        # Support any number of spatial dimensions
+        self.spatial_dims = len(config.patch_size)
+        if self.spatial_dims != 2:
+            raise ValueError(f"The number of dimensions of the input image should be 2, but got {self.spatial_dims}.")
+        self.num_channels = config.num_channels
+        self.image_size = config.image_size[-2:]
+        self.tokens_spatial_shape = [i // s for i, s in zip(config.image_size, config.patch_stride)]
+        self.mask_spatial_shape = [i // s for i, s in zip(self.tokens_spatial_shape, config.masked_unit_size)]
+        self.mask_ratio = config.mask_ratio
+        self.is_mae = is_mae
+        self.projection = nn.Conv2d(
+            self.num_channels,
+            config.embed_dim,
+            kernel_size=config.patch_size,
+            stride=config.patch_stride,
+            padding=config.patch_padding,
+        )
+
+    def masked_conv(
+        self, pixel_values: torch.FloatTensor, bool_masked_pos: Optional[torch.BoolTensor] = None
+    ) -> torch.Tensor:
+        """Zero-out the masked regions of the input before conv.
+        Prevents leakage of masked regions when using overlapping kernels.
+        """
+        if bool_masked_pos is None:
+            return self.projection(pixel_values)
+
+        target_size = pixel_values.shape[2:]
+        # Reshape bool_masked_pos to (batch_size, 1, mask_unit_height, mask_unit_width)
+        bool_masked_pos = bool_masked_pos.view(pixel_values.shape[0], 1, *self.mask_spatial_shape)
+
+        bool_masked_pos = nn.functional.interpolate(bool_masked_pos.float(), size=target_size)
+
+        return self.projection(pixel_values * bool_masked_pos)
+
+    def random_masking(
+        self, pixel_values: torch.FloatTensor, noise: Optional[torch.FloatTensor] = None
+    ) -> tuple[torch.BoolTensor, torch.LongTensor]:
+        """
+        Perform per-sample random masking by per-sample shuffling. Per-sample shuffling is done by argsort random
+        noise.
+
+        Args:
+            pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`)
+            noise (`torch.FloatTensor` of shape `(batch_size, num_mask_units)`, *optional*) which is
+                mainly used for testing purposes to control randomness and maintain the reproducibility
+        """
+        batch_size = pixel_values.shape[0]
+        # Tokens selected for masking at mask unit level
+        num_windows = math.prod(self.mask_spatial_shape)
+        len_keep = int(num_windows * (1 - self.mask_ratio))
+
+        if noise is None:
+            noise = torch.rand(batch_size, num_windows, device=pixel_values.device)
+
+        # Sort noise for each sample
+        ids_shuffle = torch.argsort(noise, dim=1)
+        # ascend: small is keep, large is remove
+        ids_restore = torch.argsort(ids_shuffle, dim=1).to(pixel_values.device)
+
+        # Generate the binary bool_masked_pos: 1 is *keep*, 0 is *remove*
+        # Note this is opposite to original MAE
+        bool_masked_pos = torch.zeros([batch_size, num_windows], device=pixel_values.device)
+        bool_masked_pos[:, :len_keep] = 1
+        # Unshuffle to get the binary bool_masked_pos
+        bool_masked_pos = torch.gather(bool_masked_pos, dim=1, index=ids_restore).bool()
+
+        return bool_masked_pos, ids_restore
+
+    def forward(
+        self,
+        pixel_values: torch.FloatTensor,
+        noise: Optional[torch.FloatTensor] = None,
+    ) -> tuple[torch.Tensor, Optional[torch.BoolTensor], Optional[torch.LongTensor]]:
+        (bool_masked_pos, ids_restore) = (
+            self.random_masking(pixel_values, noise=noise) if self.is_mae else (None, None)
+        )
+
+        embeddings = self.masked_conv(pixel_values, bool_masked_pos)
+        embeddings = embeddings.flatten(2).transpose(2, 1)
+
+        return embeddings, bool_masked_pos, ids_restore
+
+
+class HieraEmbeddings(nn.Module):
+    """
+    Construct position and patch embeddings.
+    """
+
+    def __init__(self, config: HieraConfig, is_mae: bool = False) -> None:
+        super().__init__()
+        self.patch_stride = config.patch_stride
+        tokens_spatial_shape = [i // s for i, s in zip(config.image_size, config.patch_stride)]
+        self.mask_spatial_shape = [i // s for i, s in zip(tokens_spatial_shape, config.masked_unit_size)]
+        self.num_tokens = math.prod(tokens_spatial_shape)
+        self.is_mae = is_mae
+
+        self.patch_embeddings = HieraPatchEmbeddings(config, is_mae=is_mae)
+
+        self.position_embeddings = nn.Parameter(torch.zeros(1, self.num_tokens, config.embed_dim))
+
+    def interpolate_pos_encoding(
+        self, embeddings: torch.Tensor, pos_embeds: torch.Tensor, height: int, width: int
+    ) -> torch.Tensor:
+        """
+        This method allows to interpolate the pre-trained position encodings, to be able to use the model on higher resolution
+        images. This method is also adapted to support torch.jit tracing, no class embeddings, and different patch strides.
+
+        Adapted from:
+        - https://github.com/facebookresearch/dino/blob/de9ee3df6cf39fac952ab558447af1fa1365362a/vision_transformer.py#L174-L194, and
+        - https://github.com/facebookresearch/dinov2/blob/e1277af2ba9496fbadf7aec6eba56e8d882d1e35/dinov2/models/vision_transformer.py#L179-L211
+        """
+
+        num_patches = embeddings.shape[1]
+        num_positions = pos_embeds.shape[1]
+
+        # always interpolate when tracing to ensure the exported model works for dynamic input shapes
+        if not torch.jit.is_tracing() and num_patches == num_positions and height == width:
+            return pos_embeds
+
+        dim = embeddings.shape[-1]
+
+        new_height = height // self.patch_stride[0]
+        new_width = width // self.patch_stride[1]
+
+        sqrt_num_positions = torch_int(num_positions**0.5)
+        pos_embeds = pos_embeds.reshape(1, sqrt_num_positions, sqrt_num_positions, dim)
+        pos_embeds = pos_embeds.permute(0, 3, 1, 2)
+
+        pos_embeds = nn.functional.interpolate(
+            pos_embeds,
+            size=(new_height, new_width),
+            mode="bicubic",
+            align_corners=False,
+        )
+
+        pos_embeds = pos_embeds.permute(0, 2, 3, 1).view(1, -1, dim)
+        return pos_embeds
+
+    def get_position_embedding(
+        self, embeddings: torch.Tensor, height: int, width: int, interpolate_pos_encoding: bool
+    ) -> torch.FloatTensor:
+        return (
+            self.interpolate_pos_encoding(embeddings, self.position_embeddings, height, width)
+            if interpolate_pos_encoding
+            else self.position_embeddings
+        )
+
+    def forward(
+        self,
+        pixel_values: torch.FloatTensor,
+        noise: Optional[torch.FloatTensor] = None,
+        interpolate_pos_encoding: bool = False,
+    ) -> tuple[torch.Tensor, Optional[torch.BoolTensor], Optional[torch.LongTensor]]:
+        height, width = pixel_values.shape[-2:]
+        embeddings, bool_masked_pos, ids_restore = self.patch_embeddings(pixel_values, noise=noise)
+        embeddings = embeddings + self.get_position_embedding(embeddings, height, width, interpolate_pos_encoding)
+        return embeddings, bool_masked_pos, ids_restore
+
+
+class HieraMaskUnitAttention(nn.Module):
+    """
+    Computes either Mask Unit or Global Attention. Also is able to perform query pooling.
+
+    Note: this assumes the tokens have already been flattened and unrolled into mask units.
+    """
+
+    def __init__(
+        self,
+        hidden_size: int,
+        hidden_size_output: int,
+        num_heads: int,
+        query_stride: int = 1,
+        window_size: int = 0,
+        use_mask_unit_attn: bool = False,
+    ) -> None:
+        super().__init__()
+        self.num_heads = num_heads
+        self.query_stride = query_stride
+        self.hidden_size_output = hidden_size_output
+
+        self.head_dim = hidden_size_output // num_heads
+        self.scale = (self.head_dim) ** -0.5
+
+        self.qkv = nn.Linear(hidden_size, 3 * hidden_size_output)
+        self.proj = nn.Linear(hidden_size_output, hidden_size_output)
+
+        self.window_size = window_size
+        self.use_mask_unit_attn = use_mask_unit_attn
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        head_mask: Optional[torch.FloatTensor] = None,
+        output_attentions: bool = False,
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """Input should be of shape [batch, tokens, channels]."""
+        batch_size, seq_len, _ = hidden_states.shape
+
+        num_windows = 1
+        if self.use_mask_unit_attn:
+            num_windows = seq_len // (self.query_stride * self.window_size)
+
+        qkv = self.qkv(hidden_states)
+        qkv = qkv.reshape(batch_size, -1, num_windows, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(3, 0, 4, 2, 1, 5)
+
+        query, key, value = qkv.unbind(0)
+
+        if self.query_stride > 1:
+            # Refer to unroll to see how this performs a maxpool-Nd
+            query = query.view(batch_size, self.num_heads, num_windows, self.query_stride, -1, self.head_dim)
+            query = query.max(dim=3).values
+
+        attn_weights = (query * self.scale) @ key.transpose(-1, -2)
+        attn_weights = attn_weights.softmax(dim=-1)
+
+        # Mask heads if we want to
+        if head_mask is not None:
+            attn_weights = attn_weights * head_mask
+
+        attn_output = attn_weights @ value
+        attn_output = attn_output.transpose(1, 3).reshape(batch_size, -1, self.hidden_size_output)
+        attn_output = self.proj(attn_output)
+
+        return (attn_output, attn_weights) if output_attentions else (attn_output, None)
+
+
+# Copied from transformers.models.beit.modeling_beit.drop_path
+def drop_path(input: torch.Tensor, drop_prob: float = 0.0, training: bool = False) -> torch.Tensor:
+    """
+    Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
+
+    Comment by Ross Wightman: This is the same as the DropConnect impl I created for EfficientNet, etc networks,
+    however, the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
+    See discussion: https://github.com/tensorflow/tpu/issues/494#issuecomment-532968956 ... I've opted for changing the
+    layer and argument names to 'drop path' rather than mix DropConnect as a layer name and use 'survival rate' as the
+    argument.
+    """
+    if drop_prob == 0.0 or not training:
+        return input
+    keep_prob = 1 - drop_prob
+    shape = (input.shape[0],) + (1,) * (input.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
+    random_tensor = keep_prob + torch.rand(shape, dtype=input.dtype, device=input.device)
+    random_tensor.floor_()  # binarize
+    output = input.div(keep_prob) * random_tensor
+    return output
+
+
+# Copied from transformers.models.beit.modeling_beit.BeitDropPath with Beit->Hiera
+class HieraDropPath(nn.Module):
+    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
+
+    def __init__(self, drop_prob: Optional[float] = None) -> None:
+        super().__init__()
+        self.drop_prob = drop_prob
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        return drop_path(hidden_states, self.drop_prob, self.training)
+
+    def extra_repr(self) -> str:
+        return f"p={self.drop_prob}"
+
+
+class HieraMlp(nn.Module):
+    def __init__(self, config, dim: int) -> None:
+        super().__init__()
+        self.activation_fn = ACT2FN[config.hidden_act]
+        self.fc1 = nn.Linear(dim, int(dim * config.mlp_ratio))
+        self.fc2 = nn.Linear(int(dim * config.mlp_ratio), dim)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.fc1(hidden_states)
+        hidden_states = self.activation_fn(hidden_states)
+        hidden_states = self.fc2(hidden_states)
+        return hidden_states
+
+
+class HieraLayer(nn.Module):
+    def __init__(
+        self,
+        config,
+        hidden_size: int,
+        hidden_size_output: int,
+        num_heads: int,
+        drop_path: float = 0.0,
+        query_stride: int = 1,
+        window_size: int = 0,
+        use_mask_unit_attn: bool = False,
+    ) -> None:
+        super().__init__()
+
+        self.hidden_size = hidden_size
+        self.hidden_size_output = hidden_size_output
+        self.query_stride = query_stride
+
+        self.layernorm_before = nn.LayerNorm(hidden_size, eps=config.layer_norm_eps)
+        self.attn = HieraMaskUnitAttention(
+            hidden_size=hidden_size,
+            hidden_size_output=hidden_size_output,
+            num_heads=num_heads,
+            query_stride=query_stride,
+            window_size=window_size,
+            use_mask_unit_attn=use_mask_unit_attn,
+        )
+
+        self.layernorm_after = nn.LayerNorm(hidden_size_output, eps=config.layer_norm_eps)
+        self.mlp = HieraMlp(config, hidden_size_output)
+
+        self.drop_path = HieraDropPath(drop_path) if drop_path > 0 else nn.Identity()
+        if hidden_size != hidden_size_output:
+            self.proj = nn.Linear(hidden_size, hidden_size_output)
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        head_mask: Optional[torch.FloatTensor] = None,
+        output_attentions: bool = False,
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        batch_size, seq_len, _ = hidden_states.shape
+        # Attention + Q Pooling
+        hidden_states_norm = self.layernorm_before(hidden_states)
+        if self.hidden_size != self.hidden_size_output:
+            hidden_states = self.proj(hidden_states_norm)
+            # Refer to unroll to see how this performs a maxpool-Nd
+            hidden_states = (
+                hidden_states.view(batch_size, self.query_stride, -1, self.hidden_size_output).max(dim=1).values
+            )
+
+        (hidden_states_norm, attn_weights) = self.attn(
+            hidden_states_norm, head_mask, output_attentions=output_attentions
+        )
+        hidden_states = hidden_states + self.drop_path(hidden_states_norm)
+
+        residual = hidden_states
+        hidden_states = self.layernorm_after(hidden_states)
+        hidden_states = self.mlp(hidden_states)
+        hidden_states = residual + self.drop_path(hidden_states)
+
+        return (hidden_states, attn_weights)
+
+
+class HieraStage(GradientCheckpointingLayer):
+    def __init__(
+        self,
+        config,
+        depth: int,
+        hidden_size: int,
+        hidden_size_output: int,
+        num_heads: int,
+        drop_path: list[float],
+        query_stride: list[int],
+        window_size: int,
+        use_mask_unit_attn: bool,
+        stage_num: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+        # we need to know if the previous stage used masked attention
+        # mask unit or global attention.
+        # lag by 1 layer, so that global attention,
+        # applied post pooling on lower resolution
+        previous_stage_used_masked_attention = False
+        if stage_num is not None:
+            previous_stage_used_masked_attention = config.masked_unit_attention[stage_num - 1 if stage_num > 0 else 0]
+        self.layers = nn.ModuleList(
+            [
+                HieraLayer(
+                    config=config,
+                    hidden_size=hidden_size if i == 0 else hidden_size_output,
+                    hidden_size_output=hidden_size_output,
+                    num_heads=num_heads,
+                    drop_path=drop_path[i],
+                    query_stride=query_stride[i],
+                    window_size=window_size,
+                    use_mask_unit_attn=use_mask_unit_attn or (previous_stage_used_masked_attention and i == 0),
+                )
+                for i in range(depth)
+            ]
+        )
+
+    def forward(
+        self, hidden_states: torch.Tensor, head_mask: Optional[torch.FloatTensor], output_attentions: bool = False
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        for i, layer_module in enumerate(self.layers):
+            layer_head_mask = head_mask[i] if head_mask is not None else None
+            (hidden_states, attn_weights) = layer_module(
+                hidden_states, layer_head_mask, output_attentions=output_attentions
+            )
+
+        return hidden_states, attn_weights
+
+
+def undo_windowing(hidden_states: torch.Tensor, shape: list[int], mask_unit_shape: list[int]) -> torch.Tensor:
+    """
+    Restore spatial organization by undoing windowed organization of mask units.
+
+    Args:
+        hidden_states (`torch.Tensor`): The hidden states tensor of shape `[batch_size, num_mask_unit_height*num_mask_unit_width, hidden_size]`.
+        shape (`list[int]`): The original shape of the hidden states tensor before windowing.
+        mask_unit_shape (`list[int]`): The shape of the mask units used for windowing.
+
+    Returns:
+        torch.Tensor: The restored hidden states tensor of shape [batch_size, num_mask_unit_height*mask_unit_height, num_mask_unit_width*mask_unit_width, hidden_size].
+    """
+    batch_size, hidden_size = hidden_states.shape[0], hidden_states.shape[-1]
+    # From: [batch_size, num_mask_unit_height*num_mask_unit_width, hidden_size]
+    # To: [batch_size, num_mask_unit_height, num_mask_unit_width, mask_unit_height, mask_unit_width, hidden_size]
+    num_mask_units = [s // mu for s, mu in zip(shape, mask_unit_shape)]
+    hidden_states = hidden_states.view(batch_size, *num_mask_units, *mask_unit_shape, hidden_size)
+
+    # From: [batch_size, num_mask_unit_height, num_mask_unit_width, mask_unit_height, mask_unit_width, hidden_size]
+    # To: [batch_size, num_mask_unit_height*mask_unit_height, num_mask_unit_width*mask_unit_width, hidden_size]
+    hidden_states = hidden_states.permute(0, 1, 3, 2, 4, 5)
+    hidden_states = hidden_states.reshape(batch_size, *shape, hidden_size)
+
+    return hidden_states
+
+
+class HieraEncoder(nn.Module):
+    def __init__(self, config: HieraConfig) -> None:
+        super().__init__()
+        total_depth = sum(config.depths)
+        # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth, device="cpu")]
+        # query strides rule
+        cumulative_depths = torch.tensor(config.depths, device="cpu").cumsum(0).tolist()
+        query_pool_layer = cumulative_depths[: config.num_query_pool]
+        query_strides = [math.prod(config.query_stride) if i in query_pool_layer else 1 for i in range(total_depth)]
+
+        # Transformer blocks
+        self.stages = nn.ModuleList()
+        hidden_size = config.embed_dim
+        stage_ends = [0] + cumulative_depths
+        masked_unit_area = math.prod(config.masked_unit_size)
+        query_stride_area = math.prod(config.query_stride)
+        for idx_stage, depth in enumerate(config.depths):
+            hidden_size_output = int(config.embed_dim * config.embed_dim_multiplier**idx_stage)
+
+            stage = HieraStage(
+                config=config,
+                depth=depth,
+                hidden_size=hidden_size,
+                hidden_size_output=hidden_size_output,
+                num_heads=config.num_heads[idx_stage],
+                drop_path=dpr[stage_ends[idx_stage] : stage_ends[idx_stage + 1]],
+                query_stride=query_strides[stage_ends[idx_stage] : stage_ends[idx_stage + 1]],
+                window_size=int(masked_unit_area * query_stride_area**-idx_stage),
+                use_mask_unit_attn=config.masked_unit_attention[idx_stage],
+                stage_num=idx_stage,
+            )
+
+            hidden_size = hidden_size_output
+            self.stages.append(stage)
+
+        # Setting reroll schedule
+        # The first stage has to reverse everything
+        # The next stage has to reverse all but the first unroll, etc.
+        stage_size = [i // s for i, s in zip(config.image_size, config.patch_stride)]
+        unroll_schedule = [config.query_stride] * len(config.depths[:-1])
+
+        self.schedule = {}
+        for idx_stage in range(len(config.depths)):
+            self.schedule[idx_stage] = unroll_schedule, stage_size
+            if idx_stage < config.num_query_pool:
+                stage_size = [i // s for i, s in zip(stage_size, config.query_stride)]
+                unroll_schedule = unroll_schedule[1:]
+
+        self.gradient_checkpointing = False
+
+    def reroll(
+        self, hidden_states: torch.Tensor, stage_idx: int, bool_masked_pos: Optional[torch.BoolTensor] = None
+    ) -> torch.Tensor:
+        """
+        Roll the given tensor back up to spatial order assuming it's from the given block.
+
+        If no bool_masked_pos is provided returns:
+            - [batch_size, height, width, hidden_size]
+        If a bool_masked_pos is provided returns:
+            - [batch_size, num_mask_units, mask_unit_height, mask_unit_width, hidden_size]
+        """
+        schedule, size = self.schedule[stage_idx]
+        batch_size, seq_len, hidden_size = hidden_states.shape
+
+        num_dim = len(size)
+        mask_unit_shape = [1] * num_dim
+
+        for strides in schedule:
+            # Extract the current patch from seq_len
+            hidden_states = hidden_states.view(
+                batch_size, *strides, seq_len // math.prod(strides), *mask_unit_shape, hidden_size
+            )
+
+            # Move that patch into the current MU
+            # Input: [batch_size, stride, stride, seq_len//(stride*stride), mask_unit_height, mask_unit_width, hidden_size]
+            # Output: [batch_size, seq_len//(stride*stride), stride, mask_unit_height, stride, mask_unit_width, hidden_size]
+            hidden_states = hidden_states.permute(0, 3, 1, 4, 2, 5, 6)
+
+            # Reshape to [batch_size, seq_len//(stride*stride), *mask_units, hidden_size]
+            for i in range(num_dim):
+                mask_unit_shape[i] *= strides[i]
+            hidden_states = hidden_states.reshape(batch_size, -1, *mask_unit_shape, hidden_size)
+            seq_len = hidden_states.shape[1]
+
+        # Current shape (e.g., 2d: [batch_size, #num_mask_units_height*#num_mask_units_width, mask_unit_height, mask_unit_width, hidden_size])
+        hidden_states = hidden_states.view(batch_size, seq_len, *mask_unit_shape, hidden_size)
+
+        # If masked, return [batch_size, num_mask_units, mask_unit_height, mask_unit_width, hidden_size]
+        if bool_masked_pos is not None:
+            return hidden_states
+
+        # If not masked, we can return [batch_size, height, width, hidden_size]
+        hidden_states = undo_windowing(hidden_states, size, mask_unit_shape)
+
+        return hidden_states
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        bool_masked_pos: Optional[torch.BoolTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        output_attentions: bool = False,
+        output_hidden_states: bool = False,
+        return_dict: bool = True,
+    ) -> Union[tuple, BaseModelOutput]:
+        all_hidden_states = () if output_hidden_states else None
+        all_reshaped_hidden_states = () if output_hidden_states else None
+        all_self_attentions = () if output_attentions else None
+
+        if output_hidden_states:
+            all_hidden_states = all_hidden_states + (hidden_states,)
+            reshaped_hidden_states = self.reroll(hidden_states, stage_idx=0, bool_masked_pos=bool_masked_pos)
+            all_reshaped_hidden_states = all_reshaped_hidden_states + (reshaped_hidden_states,)
+
+        for i, stage_module in enumerate(self.stages):
+            layer_head_mask = head_mask[i] if head_mask is not None else None
+
+            layer_outputs = stage_module(hidden_states, layer_head_mask, output_attentions)
+
+            hidden_states = layer_outputs[0]
+
+            if output_attentions:
+                all_self_attentions = all_self_attentions + (layer_outputs[1],)
+
+            if output_hidden_states:
+                all_hidden_states = all_hidden_states + (hidden_states,)
+                reshaped_hidden_states = self.reroll(hidden_states, stage_idx=i, bool_masked_pos=bool_masked_pos)
+                all_reshaped_hidden_states = all_reshaped_hidden_states + (reshaped_hidden_states,)
+
+        if not return_dict:
+            return tuple(
+                v
+                for v in [hidden_states, all_hidden_states, all_self_attentions, all_reshaped_hidden_states]
+                if v is not None
+            )
+        return HieraEncoderOutput(
+            last_hidden_state=hidden_states,
+            hidden_states=all_hidden_states,
+            attentions=all_self_attentions,
+            reshaped_hidden_states=all_reshaped_hidden_states,
+        )
+
+
+def unroll(
+    hidden_states: torch.Tensor, image_shape: tuple[int, int], patch_stride: tuple[int, int], schedule: list[list[int]]
+) -> torch.Tensor:
+    """
+    Reorders the tokens such that patches are contiguous in memory.
+    E.g., given [batch_size, (height, width), hidden_size] and stride of (stride, stride), this will re-order the tokens as
+    [batch_size, (stride, stride, height // stride, width // stride), hidden_size]
+
+    This allows operations like Max2d to be computed as x.view(batch_size, stride*stride, -1, hidden_size).max(dim=1).
+    Not only is this faster, but it also makes it easy to support inputs of arbitrary
+    dimensions in addition to patch-wise sparsity.
+
+    Performing this operation multiple times in sequence puts entire windows as contiguous
+    in memory. For instance, if you applied the stride (2, 2) 3 times, entire windows of
+    size 8x8 would be contiguous in memory, allowing operations like mask unit attention
+    computed easily and efficiently, while also allowing max to be applied sequentially.
+
+    Note: This means that intermediate values of the model are not in height x width order, so they
+    need to be re-rolled if you want to use the intermediate values as a height x width feature map.
+    The last block of the network is fine though, since by then the strides are all consumed.
+    """
+    batch_size, _, hidden_size = hidden_states.shape
+
+    size = [i // s for i, s in zip(image_shape, patch_stride)]
+
+    current_size = size
+    hidden_states = hidden_states.view(*([batch_size] + current_size + [hidden_size]))
+
+    for strides in schedule:
+        # Move patches with the given strides to the batch dimension
+
+        # Create a view of the tensor with the patch stride as separate dims
+        # For example in 2d: [batch_size, height // stride, stride, width // stride, stride, C]
+        current_size = [i // s for i, s in zip(current_size, strides)]
+        # initialize new_shape with [height // stride, stride, width // stride, stride]
+        new_shape = [item for pair in zip(current_size, strides) for item in pair]
+        # add batch_size and hidden_size to new_shape
+        new_shape = [batch_size] + new_shape + [hidden_size]
+        hidden_states = hidden_states.view(new_shape)
+
+        # Move the patch stride into the batch dimension
+        # For example in 2d: [batch_size, stride, stride, height // stride, width // stride, hidden_size]
+        num_dims = len(new_shape)
+        permute = [0] + list(range(2, num_dims - 1, 2)) + list(range(1, num_dims - 1, 2)) + [num_dims - 1]
+        hidden_states = hidden_states.permute(permute)
+
+        # Now finally flatten the relevant dims into the batch dimension
+        hidden_states = hidden_states.flatten(0, len(strides))
+        batch_size *= math.prod(strides)
+
+    hidden_states = hidden_states.reshape(-1, math.prod(size), hidden_size)
+    return hidden_states
+
+
+@auto_docstring
+class HieraPreTrainedModel(PreTrainedModel):
+    config: HieraConfig
+    base_model_prefix = "hiera"
+    main_input_name = "pixel_values"
+    supports_gradient_checkpointing = True
+
+    def _init_weights(self, module) -> None:
+        """Initialize the weights"""
+        std = self.config.initializer_range
+
+        if isinstance(module, HieraEmbeddings):
+            nn.init.trunc_normal_(module.position_embeddings, std=std)
+
+        elif isinstance(module, HieraDecoder):
+            nn.init.trunc_normal_(module.mask_token, std=std)
+            nn.init.trunc_normal_(module.decoder_position_embeddings, std=std)
+
+        elif isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d)):
+            nn.init.trunc_normal_(module.weight, std=std)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, std)
+
+        elif isinstance(module, nn.LayerNorm):
+            nn.init.constant_(module.bias, std)
+            nn.init.constant_(module.weight, self.config.layer_norm_init)
+
+
+class HieraPooler(nn.Module):
+    def __init__(self, config: HieraConfig):
+        super().__init__()
+        num_features = int(config.embed_dim * config.embed_dim_multiplier ** (len(config.depths) - 1))
+        self.layernorm = nn.LayerNorm(num_features, eps=config.layer_norm_eps)
+        self.pooler = nn.AdaptiveAvgPool1d(1)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = hidden_states.transpose(1, 2)
+        pooled_output = self.pooler(hidden_states)
+        pooled_output = torch.flatten(pooled_output, 1)
+        pooled_output = self.layernorm(pooled_output)
+        return pooled_output
+
+
+@auto_docstring
+class HieraModel(HieraPreTrainedModel):
+    def __init__(self, config: HieraConfig, add_pooling_layer: bool = True, is_mae: bool = False):
+        r"""
+        add_pooling_layer (`bool`, *optional*, defaults to `True`):
+            Whether or not to apply pooling layer.
+        is_mae (`bool`, *optional*, defaults to `False`):
+            Whether or not to run the model on MAE mode.
+        """
+        super().__init__(config)
+        self.num_features = int(config.embed_dim * config.embed_dim_multiplier ** (len(config.depths) - 1))
+
+        self.embeddings = HieraEmbeddings(config, is_mae=is_mae)
+        self.encoder = HieraEncoder(config)
+
+        self.unroll_schedule = [config.query_stride] * len(config.depths[:-1])
+
+        self.pooler = HieraPooler(config) if add_pooling_layer else None
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_input_embeddings(self) -> HieraPatchEmbeddings:
+        return self.embeddings.patch_embeddings
+
+    def _prune_heads(self, heads_to_prune: dict[int, list[int]]) -> None:
+        """
+        Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
+        class PreTrainedModel
+        """
+        for layer, heads in heads_to_prune.items():
+            self.encoder.layer[layer].attention.prune_heads(heads)
+
+    @auto_docstring
+    def forward(
+        self,
+        pixel_values: Optional[torch.Tensor] = None,
+        noise: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        interpolate_pos_encoding: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[tuple, BaseModelOutputWithPooling]:
+        r"""
+        noise (`torch.FloatTensor` of shape `(batch_size, num_mask_units)`, *optional*):
+            Mainly used for testing purposes to control randomness and maintain the reproducibility
+        """
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if pixel_values is None:
+            raise ValueError("You have to specify pixel_values")
+
+        # Prepare head mask if needed
+        # 1.0 in head_mask indicate we keep the head
+        # attention_probs has shape bsz x n_heads x N x N
+        # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
+        # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
+        head_mask = self.get_head_mask(head_mask, len(self.config.depths))
+
+        embedding_output, bool_masked_pos, ids_restore = self.embeddings(
+            pixel_values, interpolate_pos_encoding=interpolate_pos_encoding, noise=noise
+        )
+
+        image_shape = (pixel_values.shape[-2], pixel_values.shape[-1])
+        hidden_states = unroll(
+            embedding_output,
+            image_shape=image_shape,
+            patch_stride=self.config.patch_stride,
+            schedule=self.unroll_schedule,
+        )
+
+        # Discard masked tokens if bool_masked_pos is provided
+        if bool_masked_pos is not None:
+            mask_unit_area = math.prod(self.config.masked_unit_size)
+            batch_size, _, hidden_size = hidden_states.shape
+            positions = bool_masked_pos.unsqueeze(-1).tile(1, mask_unit_area, hidden_size)
+            hidden_states = hidden_states[positions]
+            hidden_states = hidden_states.view(batch_size, -1, hidden_size)
+
+        encoder_outputs = self.encoder(
+            hidden_states,
+            bool_masked_pos=bool_masked_pos,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        sequence_output = encoder_outputs[0]
+        pooled_output = None
+        if self.pooler is not None:
+            pooled_output = self.pooler(sequence_output)
+
+        if not return_dict:
+            head_outputs = (sequence_output, pooled_output) if pooled_output is not None else (sequence_output,)
+            head_outputs = (
+                head_outputs + (bool_masked_pos, ids_restore) if bool_masked_pos is not None else head_outputs
+            )
+            return head_outputs + encoder_outputs[1:]
+
+        return HieraModelOutput(
+            last_hidden_state=sequence_output,
+            pooler_output=pooled_output,
+            bool_masked_pos=bool_masked_pos,
+            ids_restore=ids_restore,
+            hidden_states=encoder_outputs.hidden_states,
+            attentions=encoder_outputs.attentions,
+            reshaped_hidden_states=encoder_outputs.reshaped_hidden_states,
+        )
+
+
+class HieraDecoder(nn.Module):
+    def __init__(self, config: HieraConfig):
+        super().__init__()
+        num_features = int(config.embed_dim * config.embed_dim_multiplier ** (len(config.depths) - 1))
+        tokens_spatial_shape = [i // s for i, s in zip(config.image_size, config.patch_stride)]
+        self.tokens_spatial_shape_final = [
+            i // s ** (config.num_query_pool) for i, s in zip(tokens_spatial_shape, config.query_stride)
+        ]
+        self.mask_unit_spatial_shape_final = [
+            i // s ** (config.num_query_pool) for i, s in zip(config.masked_unit_size, config.query_stride)
+        ]
+
+        self.decoder_embeddings = nn.Linear(num_features, config.decoder_hidden_size)
+
+        self.mask_token = nn.Parameter(torch.zeros(1, 1, config.decoder_hidden_size))
+
+        self.decoder_position_embeddings = nn.Parameter(
+            torch.zeros(1, math.prod(self.tokens_spatial_shape_final), config.decoder_hidden_size)
+        )
+
+        self.decoder_block = HieraStage(
+            config=config,
+            hidden_size=config.decoder_hidden_size,
+            hidden_size_output=config.decoder_hidden_size,
+            num_heads=config.decoder_num_heads,
+            depth=config.decoder_depth,
+            use_mask_unit_attn=False,
+            drop_path=[0.0] * config.decoder_depth,
+            query_stride=[1] * config.decoder_depth,
+            window_size=0,
+        )
+
+        self.decoder_norm = nn.LayerNorm(config.decoder_hidden_size, eps=config.layer_norm_eps)
+
+        # patch stride of prediction
+        self.pred_stride = config.patch_stride[-1] * (config.query_stride[-1] ** config.num_query_pool)
+        pred_dim = (self.pred_stride ** len(config.query_stride)) * config.num_channels
+
+        self.decoder_pred = nn.Linear(config.decoder_hidden_size, pred_dim)
+
+    def forward(
+        self,
+        encoder_hidden_states: torch.Tensor,
+        bool_masked_pos: torch.BoolTensor,
+        head_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False,
+    ) -> tuple[torch.Tensor, torch.BoolTensor]:
+        # Embed tokens
+        hidden_states = self.decoder_embeddings(encoder_hidden_states)
+
+        # Combine visible and bool_masked_pos tokens
+
+        # hidden_states : [batch_size, num_mask_units_visible, *mask_unit_spatial_shape_final, decoder_hidden_size]
+        # bool_masked_pos: [batch_size, num_mask_units]
+        mask_unit_height, mask_unit_width, decoder_hidden_size = hidden_states.shape[2:]
+        batch_size, num_mask_units = bool_masked_pos.shape
+
+        decoder_hidden_states = torch.zeros(
+            batch_size,
+            num_mask_units,
+            mask_unit_height,
+            mask_unit_width,
+            decoder_hidden_size,
+            device=hidden_states.device,
+            dtype=hidden_states.dtype,
+        )
+        mask_tokens = self.mask_token.view(1, 1, 1, 1, -1)
+        bool_masked_pos = bool_masked_pos.reshape(batch_size, num_mask_units, 1, 1, 1)
+        bool_masked_pos = bool_masked_pos.expand(-1, -1, mask_unit_height, mask_unit_width, decoder_hidden_size)
+        decoder_hidden_states[bool_masked_pos] = hidden_states.flatten()
+        decoder_hidden_states = (
+            1 - bool_masked_pos.float()
+        ) * mask_tokens + bool_masked_pos.float() * decoder_hidden_states
+
+        # Get back spatial order
+        hidden_states = undo_windowing(
+            decoder_hidden_states,
+            self.tokens_spatial_shape_final,
+            self.mask_unit_spatial_shape_final,
+        )
+        bool_masked_pos = undo_windowing(
+            bool_masked_pos[..., 0:1],
+            self.tokens_spatial_shape_final,
+            self.mask_unit_spatial_shape_final,
+        )
+
+        # Flatten
+        hidden_states = hidden_states.reshape(hidden_states.shape[0], -1, hidden_states.shape[-1])
+        bool_masked_pos = bool_masked_pos.view(hidden_states.shape[0], -1)
+
+        # Add pos embed
+        hidden_states = hidden_states + self.decoder_position_embeddings
+
+        # Apply decoder blocks
+        hidden_states, attn_weights = self.decoder_block(
+            hidden_states, head_mask=head_mask, output_attentions=output_attentions
+        )
+        hidden_states = self.decoder_norm(hidden_states)
+
+        # Predictor projection
+        hidden_states = self.decoder_pred(hidden_states)
+
+        return hidden_states, bool_masked_pos
+
+
+class HieraMultiScaleHead(nn.Module):
+    def __init__(self, config: HieraConfig):
+        super().__init__()
+        self.mask_unit_spatial_shape_final = [
+            i // s ** (config.num_query_pool) for i, s in zip(config.masked_unit_size, config.query_stride)
+        ]
+        self.stage_dimensions = [
+            int(config.embed_dim * config.embed_dim_multiplier**i) for i in range(len(config.depths))
+        ]
+        current_masked_unit_size = config.masked_unit_size
+        self.multi_scale_fusion_heads = nn.ModuleList()
+
+        for idx in range(config.num_query_pool):
+            kernel = [i // s for i, s in zip(current_masked_unit_size, self.mask_unit_spatial_shape_final)]
+            current_masked_unit_size = [i // s for i, s in zip(current_masked_unit_size, config.query_stride)]
+            self.multi_scale_fusion_heads.append(
+                nn.Conv2d(
+                    self.stage_dimensions[idx],
+                    self.stage_dimensions[-1],
+                    kernel_size=kernel,
+                    stride=kernel,
+                )
+            )
+        self.multi_scale_fusion_heads.append(nn.Identity())
+
+    def apply_fusion_head(self, head: nn.Module, hidden_states: torch.Tensor) -> torch.Tensor:
+        if isinstance(head, nn.Identity):
+            return hidden_states
+
+        # Doing explicit to avoid problems with torch.fx
+        batch_size, num_mask_units, mask_unit_height, mask_unit_width, hidden_size = hidden_states.shape
+        # From: [batch_size, num_mask_units, mask_unit_height, mask_unit_width, hidden_size]
+        # To: head([batch_size * num_mask_units, hidden_size, mask_unit_height, mask_unit_width])
+        hidden_states = hidden_states.reshape(
+            batch_size * num_mask_units, mask_unit_height, mask_unit_width, hidden_size
+        )
+        hidden_states = hidden_states.permute(0, 3, 1, 2)
+        hidden_states = head(hidden_states)
+
+        # Restore original layout
+        hidden_states = hidden_states.permute(0, 2, 3, 1)
+        mask_unit_height_final, mask_unit_width_final, hidden_size = hidden_states.shape[1:]
+        hidden_states = hidden_states.reshape(
+            batch_size, num_mask_units, mask_unit_height_final, mask_unit_width_final, hidden_size
+        )
+
+        return hidden_states
+
+    def forward(self, feature_maps: list[torch.Tensor]) -> torch.Tensor:
+        # Multi-scale fusion
+        hidden_states = 0.0
+        for head, feature_map in zip(self.multi_scale_fusion_heads, feature_maps):
+            hidden_states = hidden_states + self.apply_fusion_head(head, feature_map)
+
+        return hidden_states
+
+
+@auto_docstring(
+    custom_intro="""
+    The Hiera Model transformer with the decoder on top for self-supervised pre-training.
+
+    <Tip>
+
+    Note that we provide a script to pre-train this model on custom data in our [examples
+    directory](https://github.com/huggingface/transformers/tree/main/examples/pytorch/image-pretraining).
+
+    </Tip>
+    """
+)
+class HieraForPreTraining(HieraPreTrainedModel):
+    def __init__(self, config: HieraConfig) -> None:
+        super().__init__(config)
+        # Encoder
+        self.hiera = HieraModel(config, add_pooling_layer=False, is_mae=True)
+        self.encoder_norm = nn.LayerNorm(self.hiera.num_features, eps=config.layer_norm_eps)
+        # Multi-scale fusion heads
+        self.multiscale_fusion = HieraMultiScaleHead(config)
+        # Decoder
+        self.decoder = HieraDecoder(config)
+        self.pred_stride = self.decoder.pred_stride
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_pixel_label_2d(self, pixel_values: torch.Tensor, bool_masked_pos: torch.BoolTensor) -> torch.Tensor:
+        # bool_masked_pos (boolean tensor): True means *masked*
+        pixel_values = pixel_values.permute(0, 2, 3, 1)
+
+        size = self.pred_stride
+        label = pixel_values.unfold(1, size, size).unfold(2, size, size)
+        label = label.flatten(1, 2).flatten(2)
+        label = label[bool_masked_pos]
+        if self.config.normalize_pixel_loss:
+            mean = label.mean(dim=-1, keepdim=True)
+            var = label.var(dim=-1, keepdim=True)
+            label = (label - mean) / (var + 1.0e-6) ** 0.5
+
+        return label
+
+    def forward_loss(self, pixel_values: torch.Tensor, logits: torch.Tensor, bool_masked_pos: torch.BoolTensor):
+        # We invert the bool_masked_pos such that 1.0 is *masked*
+        bool_masked_pos = ~bool_masked_pos
+        label = self.get_pixel_label_2d(pixel_values, bool_masked_pos)
+
+        logits = logits[bool_masked_pos]
+        loss = (logits - label) ** 2
+        loss = loss.mean()
+
+        return loss
+
+    @auto_docstring
+    def forward(
+        self,
+        pixel_values: Optional[torch.Tensor] = None,
+        noise: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        interpolate_pos_encoding: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[tuple, HieraForPreTrainingOutput]:
+        r"""
+        noise (`torch.FloatTensor` of shape `(batch_size, num_mask_units)`, *optional*):
+            Mainly used for testing purposes to control randomness and maintain the reproducibility
+
+        Examples:
+        ```python
+        >>> from transformers import AutoImageProcessor, HieraForPreTraining
+        >>> import torch
+        >>> from PIL import Image
+        >>> import requests
+
+        >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+        >>> image = Image.open(requests.get(url, stream=True).raw)
+
+        >>> image_processor = AutoImageProcessor.from_pretrained("facebook/hiera-tiny-224-mae-hf")
+        >>> model = HieraForPreTraining.from_pretrained("facebook/hiera-tiny-224-mae-hf")
+
+        >>> inputs = image_processor(images=image, return_tensors="pt")
+
+        >>> outputs = model(**inputs)
+        >>> logits = outputs.logits
+        >>> loss = outputs.loss
+        >>> print(list(logits.shape))
+        [1, 196, 768]
+        ```"""
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+
+        outputs = self.hiera(
+            pixel_values,
+            noise=noise,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=True,
+            interpolate_pos_encoding=interpolate_pos_encoding,
+            return_dict=return_dict,
+        )
+
+        feature_maps = outputs[-1]
+        bool_masked_pos = outputs[1]
+        ids_to_restore = outputs[2]
+        # Take only the query pooled and last hidden states
+        feature_maps = feature_maps[1 : self.hiera.config.num_query_pool + 1] + (feature_maps[-1],)
+        fused_hidden_states = self.multiscale_fusion(feature_maps)
+        fused_hidden_states = self.encoder_norm(fused_hidden_states)
+
+        # Reconstruct pixel values
+        logits, bool_masked_pos = self.decoder(
+            fused_hidden_states,
+            bool_masked_pos=bool_masked_pos,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+        )
+
+        loss = self.forward_loss(pixel_values, logits, bool_masked_pos)
+
+        if not return_dict:
+            output = (logits, bool_masked_pos, ids_to_restore)
+            if output_hidden_states:
+                output = output + (outputs[3],)
+            if output_attentions:
+                output = output + (outputs[4],)
+            if output_hidden_states:
+                output = output + (outputs[-1],)
+            return ((loss,) + output) if loss is not None else output
+
+        return HieraForPreTrainingOutput(
+            loss=loss,
+            logits=logits,
+            bool_masked_pos=bool_masked_pos,
+            ids_restore=ids_to_restore,
+            hidden_states=outputs.hidden_states if output_hidden_states else None,
+            attentions=outputs.attentions,
+            reshaped_hidden_states=outputs.reshaped_hidden_states if output_hidden_states else None,
+        )
+
+
+@auto_docstring(
+    custom_intro="""
+    Hiera Model transformer with an image classification head on top (a linear layer on top of the final hidden state with
+    average pooling) e.g. for ImageNet.
+
+    <Tip>
+
+        Note that it's possible to fine-tune Hiera on higher resolution images than the ones it has been trained on, by
+        setting `interpolate_pos_encoding` to `True` in the forward of the model. This will interpolate the pre-trained
+        position embeddings to the higher resolution.
+
+    </Tip>
+    """
+)
+class HieraForImageClassification(HieraPreTrainedModel):
+    def __init__(self, config: HieraConfig) -> None:
+        super().__init__(config)
+
+        self.num_labels = config.num_labels
+        self.hiera = HieraModel(config, add_pooling_layer=True, is_mae=False)
+
+        # Classifier head
+        self.classifier = (
+            nn.Linear(self.hiera.num_features, config.num_labels) if config.num_labels > 0 else nn.Identity()
+        )
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    @auto_docstring
+    def forward(
+        self,
+        pixel_values,
+        head_mask: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        interpolate_pos_encoding: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Union[tuple, HieraForImageClassificationOutput]:
+        r"""
+        labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
+            Labels for computing the image classification/regression loss. Indices should be in `[0, ...,
+            config.num_labels - 1]`. If `config.num_labels == 1` a regression loss is computed (Mean-Square loss), If
+            `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+
+        outputs = self.hiera(
+            pixel_values,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            interpolate_pos_encoding=interpolate_pos_encoding,
+            return_dict=return_dict,
+        )
+
+        pooled_output = outputs[1]
+
+        logits = self.classifier(pooled_output)
+
+        loss = None
+        if labels is not None:
+            loss = self.loss_function(labels, logits, self.config)
+
+        if not return_dict:
+            output = (logits,) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
+
+        return HieraForImageClassificationOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+            reshaped_hidden_states=outputs.reshaped_hidden_states,
+        )
+
+
+@auto_docstring(
+    custom_intro="""
+    Hiera backbone, to be used with frameworks like DETR and MaskFormer.
+    """
+)
+class HieraBackbone(HieraPreTrainedModel, BackboneMixin):
+    def __init__(self, config: HieraConfig):
+        super().__init__(config)
+        super()._init_backbone(config)
+
+        self.num_features = [config.embed_dim] + [
+            int(config.embed_dim * config.embed_dim_multiplier**i) for i in range(len(config.depths))
+        ]
+        self.embeddings = HieraEmbeddings(config, is_mae=False)
+        self.encoder = HieraEncoder(config)
+
+        # Add layer norms to hidden states of out_features
+        hidden_states_norms = {}
+        for stage, num_channels in zip(self._out_features, self.channels):
+            hidden_states_norms[stage] = nn.LayerNorm(num_channels)
+        self.hidden_states_norms = nn.ModuleDict(hidden_states_norms)
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_input_embeddings(self):
+        return self.embeddings.patch_embeddings
+
+    def forward(
+        self,
+        pixel_values: torch.Tensor,
+        output_hidden_states: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> BackboneOutput:
+        """
+        Returns:
+
+        Examples:
+
+        ```python
+        >>> from transformers import AutoImageProcessor, AutoBackbone
+        >>> import torch
+        >>> from PIL import Image
+        >>> import requests
+
+        >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+        >>> image = Image.open(requests.get(url, stream=True).raw)
+
+        >>> processor = AutoImageProcessor.from_pretrained("facebook/hiera-tiny-224-hf")
+        >>> model = AutoBackbone.from_pretrained(
+        ...     "facebook/hiera-tiny-224-hf", out_features=["stage1", "stage2", "stage3", "stage4"]
+        ... )
+
+        >>> inputs = processor(image, return_tensors="pt")
+        >>> outputs = model(**inputs)
+        >>> feature_maps = outputs.feature_maps
+        >>> list(feature_maps[-1].shape)
+        [1, 768, 7, 7]
+        ```"""
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+
+        embedding_output, _, _ = self.embeddings(pixel_values)
+
+        outputs = self.encoder(
+            embedding_output,
+            head_mask=None,
+            output_attentions=output_attentions,
+            output_hidden_states=True,
+            return_dict=return_dict,
+        )
+
+        hidden_states = outputs[-1]
+
+        feature_maps = ()
+        for stage, hidden_state in zip(self.stage_names, hidden_states):
+            if stage in self.out_features:
+                batch_size, height, width, num_channels = hidden_state.shape
+                hidden_state = hidden_state.view(batch_size, height * width, num_channels)
+                hidden_state = self.hidden_states_norms[stage](hidden_state)
+                hidden_state = hidden_state.view(batch_size, height, width, num_channels)
+                hidden_state = hidden_state.permute(0, 3, 1, 2).contiguous()
+                feature_maps += (hidden_state,)
+
+        if not return_dict:
+            output = (feature_maps,)
+            if output_hidden_states:
+                output += (outputs[1],)
+            if output_attentions:
+                output += (outputs[2],)
+            return output
+
+        return BackboneOutput(
+            feature_maps=feature_maps,
+            hidden_states=outputs[1] if output_hidden_states else None,
+            attentions=outputs[2] if output_attentions else None,
+        )
+
+
+__all__ = ["HieraForImageClassification", "HieraForPreTraining", "HieraBackbone", "HieraModel", "HieraPreTrainedModel"]
+    t   i   o   n   s   
+                                   t   e   x   t   _   q   u   e   r   i   e   s       =       o   u   t   p   u   t   s   .   t   e   x   t   _   q   u   e   r   i   e   s   
+   
+                                   i   f       m   a   s   k   _   l   a   b   e   l   s       i   s       n   o   t       N   o   n   e       a   n   d       c   l   a   s   s   _   l   a   b   e   l   s       i   s       n   o   t       N   o   n   e   :   
+                                                   l   o   s   s   _   d   i   c   t   :       d   i   c   t   [   s   t   r   ,       T   e   n   s   o   r   ]       =       s   e   l   f   .   g   e   t   _   l   o   s   s   _   d   i   c   t   (   
+                                                                   m   a   s   k   s   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   =   m   a   s   k   s   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   ,   
+                                                                   c   l   a   s   s   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   =   c   l   a   s   s   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   ,   
+                                                                   c   o   n   t   r   a   s   t   i   v   e   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   =   c   o   n   t   r   a   s   t   i   v   e   _   q   u   e   r   i   e   s   _   l   o   g   i   t   s   ,   
+                                                                   m   a   s   k   _   l   a   b   e   l   s   =   m   a   s   k   _   l   a   b   e   l   s   ,   
+                                                                   c   l   a   s   s   _   l   a   b   e   l   s   =   c   l   a   s   s   _   l   a   b   e   l   s   ,   
+                                                                   t   e   x   t   _   q   u   e   r   i   e   s   =   t   e   x   t   _   q   u   e   r   i   e   s   ,   
+                                                                   a   u   x   i   l   i   a   r   y   _   p   r   e   d   i   c   t   i   o   n   s   =   a   u   x   i   l   i   a   r   y   _   p   r   e   d   i   c   t   i   o   n   s   ,   
+                                                                   c   a   l   c   u   l   a   t   e   _   c   o   n   t   r   a   s   t   i   v   e   _   l   o   s   s   =   s   e   l   f   .   c   o   n   f   i   g   .   c   o   n   t   r   a   s   t   i   v   e   _   t   e   m   p   e   r   a   t   u   r   e       i   s       n   o   t       N   o   n   e   ,   
+                                                   )   
+                                                   l   o   s   s       =       s   e   l   f   .   g   e   t   _   l   o   s   s   (   l   o   s   s   _   d   i   c   t   )   
+   
+                                   o   u   t   p   u   t   _   a   u   x   i   l   i   a   r   y   _   l   o   g   i   t   s       =       (   
+                                                   s   e   l   f   .   c   o   n   f   i   g   .   o   u   t   p   u   t   _   a   u   x   i   l   i   a   r   y   _   l   o   g   i   t   s       i   f       o   u   t   p   u   t   _   a   u   x   i   l   i   a   r   y   _   l   o   g   i   t   s       i   s       N   o   n   e       e   l   s   e       o   u   t   p   u   t   _   a   u   x   i   l   i   a   r   y   _   l   o   g   i   t   s   
+                                   )   
+                                   i   f       n   o   t       o   u   t   p   u   t   _   a   u   x   i   l   i   a   r   y   _   l   o   g   i   t   s   :   
+                                                        #c   8     ÿÿÿÿÿÿÿÿ# coding=utf-8
+# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
+# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""PyTorch RoBERTa model."""
+
+import math
+from typing import Optional, Union
+
+import torch
+from torch import nn
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+
+from ...activations import ACT2FN, gelu
+from ...cache_utils import Cache, DynamicCache, EncoderDecoderCache
+from ...generation import GenerationMixin
+from ...modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa, _prepare_4d_causal_attention_mask_for_sdpa
+from ...modeling_layers import GradientCheckpointingLayer
+from ...modeling_outputs import (
+    BaseModelOutputWithPastAndCrossAttentions,
+    BaseModelOutputWithPoolingAndCrossAttentions,
+    CausalLMOutputWithCrossAttentions,
+    MaskedLMOutput,
+    MultipleChoiceModelOutput,
+    QuestionAnsweringModelOutput,
+    SequenceClassifierOutput,
+    TokenClassifierOutput,
+)
+from ...modeling_utils import PreTrainedModel
+from ...pytorch_utils import apply_chunking_to_forward, find_pruneable_heads_and_indices, prune_linear_layer
+from ...utils import auto_docstring, logging
+from ...utils.deprecation import deprecate_kwarg
+from .configuration_roberta import RobertaConfig
+
+
+logger = logging.get_logger(__name__)
+
+
+class RobertaEmbeddings(nn.Module):
+    """
+    Same as BertEmbeddings with a tiny tweak for positional embeddings indexing.
+    """
+
+    # Copied from transformers.models.bert.modeling_bert.BertEmbeddings.__init__
+    def __init__(self, config):
+        super().__init__()
+        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+        self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
+
+        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
+        # any TensorFlow checkpoint file
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        # position_ids (1, len position emb) is contiguous in memory and exported when serialized
+        self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
+        self.register_buffer(
+            "position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)), persistent=False
+        )
+        self.register_buffer(
+            "token_type_ids", torch.zeros(self.position_ids.size(), dtype=torch.long), persistent=False
+        )
+
+        # End copy
+        self.padding_idx = config.pad_token_id
+        self.position_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size, padding_idx=self.padding_idx
+        )
+
+    def forward(
+        self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, past_key_values_length=0
+    ):
+        if position_ids is None:
+            if input_ids is not None:
+                # Create the position ids from the input token ids. Any padded tokens remain padded.
+                position_ids = create_position_ids_from_input_ids(input_ids, self.padding_idx, past_key_values_length)
+            else:
+                position_ids = self.create_position_ids_from_inputs_embeds(inputs_embeds)
+
+        if input_ids is not None:
+            input_shape = input_ids.size()
+        else:
+            input_shape = inputs_embeds.size()[:-1]
+
+        seq_length = input_shape[1]
+
+        # Setting the token_type_ids to the registered buffer in constructor where it is all zeros, which usually occurs
+        # when its auto-generated, registered buffer helps users when tracing the model without passing token_type_ids, solves
+        # issue #5664
+        if token_type_ids is None:
+            if hasattr(self, "token_type_ids"):
+                buffered_token_type_ids = self.token_type_ids[:, :seq_length]
+                buffered_token_type_ids_expanded = buffered_token_type_ids.expand(input_shape[0], seq_length)
+                token_type_ids = buffered_token_type_ids_expanded
+            else:
+                token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
+
+        if inputs_embeds is None:
+            inputs_embeds = self.word_embeddings(input_ids)
+        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+
+        embeddings = inputs_embeds + token_type_embeddings
+        if self.position_embedding_type == "absolute":
+            position_embeddings = self.position_embeddings(position_ids)
+            embeddings += position_embeddings
+        embeddings = self.LayerNorm(embeddings)
+        embeddings = self.dropout(embeddings)
+        return embeddings
+
+    def create_position_ids_from_inputs_embeds(self, inputs_embeds):
+        """
+        We are provided embeddings directly. We cannot infer which are padded so just generate sequential position ids.
+
+        Args:
+            inputs_embeds: torch.Tensor
+
+        Returns: torch.Tensor
+        """
+        input_shape = inputs_embeds.size()[:-1]
+        sequence_length = input_shape[1]
+
+        position_ids = torch.arange(
+            self.padding_idx + 1, sequence_length + self.padding_idx + 1, dtype=torch.long, device=inputs_embeds.device
+        )
+        return position_ids.unsqueeze(0).expand(input_shape)
+
+
+# Copied from transformers.models.bert.modeling_bert.BertSelfAttention with Bert->Roberta
+class RobertaSelfAttention(nn.Module):
+    def __init__(self, config, position_embedding_type=None, layer_idx=None):
+        super().__init__()
+        if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
+            raise ValueError(
+                f"The hidden size ({config.hidden_size}) is not a multiple of the number of attention "
+                f"heads ({config.num_attention_heads})"
+            )
+
+        self.num_attention_heads = config.num_attention_heads
+        self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
+
+        self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        self.key = nn.Linear(config.hidden_size, self.all_head_size)
+        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+
+        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        self.position_embedding_type = position_embedding_type or getattr(
+            config, "position_embedding_type", "absolute"
+        )
+        if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
+            self.max_position_embeddings = config.max_position_embeddings
+            self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
+
+        self.is_decoder = config.is_decoder
+        self.layer_idx = layer_idx
+
+    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor]:
+        batch_size, seq_length, _ = hidden_states.shape
+        query_layer = self.query(hidden_states)
+        query_layer = query_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
+            1, 2
+        )
+
+        is_updated = False
+        is_cross_attention = encoder_hidden_states is not None
+        if past_key_values is not None:
+            if isinstance(past_key_values, EncoderDecoderCache):
+                is_updated = past_key_values.is_updated.get(self.layer_idx)
+                if is_cross_attention:
+                    # after the first generated id, we can subsequently re-use all key/value_layer from cache
+                    curr_past_key_value = past_key_values.cross_attention_cache
+                else:
+                    curr_past_key_value = past_key_values.self_attention_cache
+            else:
+                curr_past_key_value = past_key_values
+
+        current_states = encoder_hidden_states if is_cross_attention else hidden_states
+        if is_cross_attention and past_key_values is not None and is_updated:
+            # reuse k,v, cross_attentions
+            key_layer = curr_past_key_value.layers[self.layer_idx].keys
+            value_layer = curr_past_key_value.layers[self.layer_idx].values
+        else:
+            key_layer = self.key(current_states)
+            key_layer = key_layer.view(batch_size, -1, self.num_attention_heads, self.attention_head_size).transpose(
+                1, 2
+            )
+            value_layer = self.value(current_states)
+            value_layer = value_layer.view(
+                batch_size, -1, self.num_attention_heads, self.attention_head_size
+            ).transpose(1, 2)
+
+            if past_key_values is not None:
+                # save all key/value_layer to cache to be re-used for fast auto-regressive generation
+                cache_position = cache_position if not is_cross_attention else None
+                key_layer, value_layer = curr_past_key_value.update(
+                    key_layer, value_layer, self.layer_idx, {"cache_position": cache_position}
+                )
+                # set flag that curr layer for cross-attn is already updated so we can re-use in subsequent calls
+                if is_cross_attention and isinstance(past_key_values, EncoderDecoderCache):
+                    past_key_values.is_updated[self.layer_idx] = True
+
+        # Take the dot product between "query" and "key" to get the raw attention scores.
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+
+        if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
+            query_length, key_length = query_layer.shape[2], key_layer.shape[2]
+            if past_key_values is not None:
+                position_ids_l = torch.tensor(key_length - 1, dtype=torch.long, device=hidden_states.device).view(
+                    -1, 1
+                )
+            else:
+                position_ids_l = torch.arange(query_length, dtype=torch.long, device=hidden_states.device).view(-1, 1)
+            position_ids_r = torch.arange(key_length, dtype=torch.long, device=hidden_states.device).view(1, -1)
+            distance = position_ids_l - position_ids_r
+
+            positional_embedding = self.distance_embedding(distance + self.max_position_embeddings - 1)
+            positional_embedding = positional_embedding.to(dtype=query_layer.dtype)  # fp16 compatibility
+
+            if self.position_embedding_type == "relative_key":
+                relative_position_scores = torch.einsum("bhld,lrd->bhlr", query_layer, positional_embedding)
+                attention_scores = attention_scores + relative_position_scores
+            elif self.position_embedding_type == "relative_key_query":
+                relative_position_scores_query = torch.einsum("bhld,lrd->bhlr", query_layer, positional_embedding)
+                relative_position_scores_key = torch.einsum("bhrd,lrd->bhlr", key_layer, positional_embedding)
+                attention_scores = attention_scores + relative_position_scores_query + relative_position_scores_key
+
+        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+        if attention_mask is not None:
+            # Apply the attention mask is (precomputed for all layers in RobertaModel forward() function)
+            attention_scores = attention_scores + attention_mask
+
+        # Normalize the attention scores to probabilities.
+        attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+
+        # This is actually dropping out entire tokens to attend to, which might
+        # seem a bit unusual, but is taken from the original Transformer paper.
+        attention_probs = self.dropout(attention_probs)
+
+        # Mask heads if we want to
+        if head_mask is not None:
+            attention_probs = attention_probs * head_mask
+
+        context_layer = torch.matmul(attention_probs, value_layer)
+
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(new_context_layer_shape)
+
+        return context_layer, attention_probs
+
+
+# Copied from transformers.models.bert.modeling_bert.BertSdpaSelfAttention with Bert->Roberta
+class RobertaSdpaSelfAttention(RobertaSelfAttention):
+    def __init__(self, config, position_embedding_type=None, layer_idx=None):
+        super().__init__(config, position_embedding_type=position_embedding_type, layer_idx=layer_idx)
+        self.dropout_prob = config.attention_probs_dropout_prob
+
+    # Adapted from RobertaSelfAttention
+    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor]:
+        if self.position_embedding_type != "absolute" or output_attentions or head_mask is not None:
+            # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once implemented.
+            logger.warning_once(
+                "RobertaSdpaSelfAttention is used but `torch.nn.functional.scaled_dot_product_attention` does not support "
+                "non-absolute `position_embedding_type` or `output_attentions=True` or `head_mask`. Falling back to "
+                "the manual attention implementation, but specifying the manual implementation will be required from "
+                "Transformers version v5.0.0 onwards. This warning can be removed using the argument "
+                '`attn_implementation="eager"` when loading the model.'
+            )
+            return super().forward(
+                hidden_states,
+                attention_mask,
+                head_mask,
+                encoder_hidden_states,
+                past_key_values,
+                output_attentions,
+                cache_position,
+            )
+
+        bsz, tgt_len, _ = hidden_states.size()
+
+        query_layer = (
+            self.query(hidden_states).view(bsz, -1, self.num_attention_heads, self.attention_head_size).transpose(1, 2)
+        )
+
+        is_updated = False
+        is_cross_attention = encoder_hidden_states is not None
+        current_states = encoder_hidden_states if is_cross_attention else hidden_states
+        if past_key_values is not None:
+            if isinstance(past_key_values, EncoderDecoderCache):
+                is_updated = past_key_values.is_updated.get(self.layer_idx)
+                if is_cross_attention:
+                    # after the first generated id, we can subsequently re-use all key/value_states from cache
+                    curr_past_key_value = past_key_values.cross_attention_cache
+                else:
+                    curr_past_key_value = past_key_values.self_attention_cache
+            else:
+                curr_past_key_value = past_key_values
+
+        current_states = encoder_hidden_states if is_cross_attention else hidden_states
+        if is_cross_attention and past_key_values is not None and is_updated:
+            # reuse k,v, cross_attentions
+            key_layer = curr_past_key_value.layers[self.layer_idx].keys
+            value_layer = curr_past_key_value.layers[self.layer_idx].values
+        else:
+            key_layer = (
+                self.key(current_states)
+                .view(bsz, -1, self.num_attention_heads, self.attention_head_size)
+                .transpose(1, 2)
+            )
+            value_layer = (
+                self.value(current_states)
+                .view(bsz, -1, self.num_attention_heads, self.attention_head_size)
+                .transpose(1, 2)
+            )
+
+            if past_key_values is not None:
+                # save all key/value_layer to cache to be re-used for fast auto-regressive generation
+                cache_position = cache_position if not is_cross_attention else None
+                key_layer, value_layer = curr_past_key_value.update(
+                    key_layer, value_layer, self.layer_idx, {"cache_position": cache_position}
+                )
+                # set flag that curr layer for cross-attn is already updated so we can re-use in subsequent calls
+                if is_cross_attention and isinstance(past_key_values, EncoderDecoderCache):
+                    past_key_values.is_updated[self.layer_idx] = True
+
+        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an inline conditional assignment
+        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents dynamic shapes from compiling.
+        # The tgt_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create
+        # a causal mask in case tgt_len == 1.
+        is_causal = self.is_decoder and not is_cross_attention and attention_mask is None and tgt_len > 1
+
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
+            query_layer,
+            key_layer,
+            value_layer,
+            attn_mask=attention_mask,
+            dropout_p=self.dropout_prob if self.training else 0.0,
+            is_causal=is_causal,
+        )
+
+        attn_output = attn_output.transpose(1, 2)
+        attn_output = attn_output.reshape(bsz, tgt_len, self.all_head_size)
+
+        return attn_output, None
+
+
+# Copied from transformers.models.bert.modeling_bert.BertSelfOutput
+class RobertaSelfOutput(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        return hidden_states
+
+
+ROBERTA_SELF_ATTENTION_CLASSES = {
+    "eager": RobertaSelfAttention,
+    "sdpa": RobertaSdpaSelfAttention,
+}
+
+
+# Copied from transformers.models.bert.modeling_bert.BertAttention with Bert->Roberta,BERT->ROBERTA
+class RobertaAttention(nn.Module):
+    def __init__(self, config, position_embedding_type=None, layer_idx=None):
+        super().__init__()
+        self.self = ROBERTA_SELF_ATTENTION_CLASSES[config._attn_implementation](
+            config,
+            position_embedding_type=position_embedding_type,
+            layer_idx=layer_idx,
+        )
+        self.output = RobertaSelfOutput(config)
+        self.pruned_heads = set()
+
+    def prune_heads(self, heads):
+        if len(heads) == 0:
+            return
+        heads, index = find_pruneable_heads_and_indices(
+            heads, self.self.num_attention_heads, self.self.attention_head_size, self.pruned_heads
+        )
+
+        # Prune linear layers
+        self.self.query = prune_linear_layer(self.self.query, index)
+        self.self.key = prune_linear_layer(self.self.key, index)
+        self.self.value = prune_linear_layer(self.self.value, index)
+        self.output.dense = prune_linear_layer(self.output.dense, index, dim=1)
+
+        # Update hyper params and store pruned heads
+        self.self.num_attention_heads = self.self.num_attention_heads - len(heads)
+        self.self.all_head_size = self.self.attention_head_size * self.self.num_attention_heads
+        self.pruned_heads = self.pruned_heads.union(heads)
+
+    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor]:
+        self_outputs = self.self(
+            hidden_states,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            past_key_values=past_key_values,
+            output_attentions=output_attentions,
+            cache_position=cache_position,
+        )
+        attention_output = self.output(self_outputs[0], hidden_states)
+        outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
+        return outputs
+
+
+# Copied from transformers.models.bert.modeling_bert.BertIntermediate
+class RobertaIntermediate(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
+        if isinstance(config.hidden_act, str):
+            self.intermediate_act_fn = ACT2FN[config.hidden_act]
+        else:
+            self.intermediate_act_fn = config.hidden_act
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.intermediate_act_fn(hidden_states)
+        return hidden_states
+
+
+# Copied from transformers.models.bert.modeling_bert.BertOutput
+class RobertaOutput(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        return hidden_states
+
+
+# Copied from transformers.models.bert.modeling_bert.BertLayer with Bert->Roberta
+class RobertaLayer(GradientCheckpointingLayer):
+    def __init__(self, config, layer_idx=None):
+        super().__init__()
+        self.chunk_size_feed_forward = config.chunk_size_feed_forward
+        self.seq_len_dim = 1
+        self.attention = RobertaAttention(config, layer_idx=layer_idx)
+        self.is_decoder = config.is_decoder
+        self.add_cross_attention = config.add_cross_attention
+        if self.add_cross_attention:
+            if not self.is_decoder:
+                raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
+            self.crossattention = RobertaAttention(config, position_embedding_type="absolute", layer_idx=layer_idx)
+        self.intermediate = RobertaIntermediate(config)
+        self.output = RobertaOutput(config)
+
+    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor]:
+        self_attention_outputs = self.attention(
+            hidden_states,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            past_key_values=past_key_values,
+            cache_position=cache_position,
+        )
+        attention_output = self_attention_outputs[0]
+        outputs = self_attention_outputs[1:]  # add self attentions if we output attention weights
+
+        if self.is_decoder and encoder_hidden_states is not None:
+            if not hasattr(self, "crossattention"):
+                raise ValueError(
+                    f"If `encoder_hidden_states` are passed, {self} has to be instantiated with cross-attention layers"
+                    " by setting `config.add_cross_attention=True`"
+                )
+
+            cross_attention_outputs = self.crossattention(
+                attention_output,
+                attention_mask=encoder_attention_mask,
+                head_mask=head_mask,
+                encoder_hidden_states=encoder_hidden_states,
+                past_key_values=past_key_values,
+                output_attentions=output_attentions,
+                cache_position=cache_position,
+            )
+            attention_output = cross_attention_outputs[0]
+            outputs = outputs + cross_attention_outputs[1:]  # add cross attentions if we output attention weights
+
+        layer_output = apply_chunking_to_forward(
+            self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
+        )
+        outputs = (layer_output,) + outputs
+
+        return outputs
+
+    def feed_forward_chunk(self, attention_output):
+        intermediate_output = self.intermediate(attention_output)
+        layer_output = self.output(intermediate_output, attention_output)
+        return layer_output
+
+
+# Copied from transformers.models.bert.modeling_bert.BertEncoder with Bert->Roberta
+class RobertaEncoder(nn.Module):
+    def __init__(self, config, layer_idx=None):
+        super().__init__()
+        self.config = config
+        self.layer = nn.ModuleList([RobertaLayer(config, layer_idx=i) for i in range(config.num_hidden_layers)])
+        self.gradient_checkpointing = False
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[Cache] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = False,
+        output_hidden_states: Optional[bool] = False,
+        return_dict: Optional[bool] = True,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> Union[tuple[torch.Tensor], BaseModelOutputWithPastAndCrossAttentions]:
+        all_hidden_states = () if output_hidden_states else None
+        all_self_attentions = () if output_attentions else None
+        all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
+
+        if self.gradient_checkpointing and self.training:
+            if use_cache:
+                logger.warning_once(
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                )
+                use_cache = False
+
+        if use_cache and self.config.is_decoder and past_key_values is None:
+            past_key_values = EncoderDecoderCache(DynamicCache(config=self.config), DynamicCache(config=self.config))
+
+        if use_cache and self.config.is_decoder and isinstance(past_key_values, tuple):
+            logger.warning_once(
+                "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.58.0. "
+                "You should pass an instance of `EncoderDecoderCache` instead, e.g. "
+                "`past_key_values=EncoderDecoderCache.from_legacy_cache(past_key_values)`."
+            )
+            past_key_values = EncoderDecoderCache.from_legacy_cache(past_key_values)
+
+        for i, layer_module in enumerate(self.layer):
+            if output_hidden_states:
+                all_hidden_states = all_hidden_states + (hidden_states,)
+
+            layer_head_mask = head_mask[i] if head_mask is not None else None
+
+            layer_outputs = layer_module(
+                hidden_states,
+                attention_mask,
+                layer_head_mask,
+                encoder_hidden_states,  # as a positional argument for gradient checkpointing
+                encoder_attention_mask=encoder_attention_mask,
+                past_key_values=past_key_values,
+                output_attentions=output_attentions,
+                cache_position=cache_position,
+            )
+
+            hidden_states = layer_outputs[0]
+            if output_attentions:
+                all_self_attentions = all_self_attentions + (layer_outputs[1],)
+                if self.config.add_cross_attention:
+                    all_cross_attentions = all_cross_attentions + (layer_outputs[2],)
+
+        if output_hidden_states:
+            all_hidden_states = all_hidden_states + (hidden_states,)
+
+        if not return_dict:
+            return tuple(
+                v
+                for v in [
+                    hidden_states,
+                    past_key_values,
+                    all_hidden_states,
+                    all_self_attentions,
+                    all_cross_attentions,
+                ]
+                if v is not None
+            )
+        return BaseModelOutputWithPastAndCrossAttentions(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_self_attentions,
+            cross_attentions=all_cross_attentions,
+        )
+
+
+# Copied from transformers.models.bert.modeling_bert.BertPooler
+class RobertaPooler(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.activation = nn.Tanh()
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # We "pool" the model by simply taking the hidden state corresponding
+        # to the first token.
+        first_token_tensor = hidden_states[:, 0]
+        pooled_output = self.dense(first_token_tensor)
+        pooled_output = self.activation(pooled_output)
+        return pooled_output
+
+
+@auto_docstring
+class RobertaPreTrainedModel(PreTrainedModel):
+    config: RobertaConfig
+    base_model_prefix = "roberta"
+    supports_gradient_checkpointing = True
+    _no_split_modules = ["RobertaEmbeddings", "RobertaSelfAttention", "RobertaSdpaSelfAttention"]
+    _supports_sdpa = True
+
+    # Copied from transformers.models.bert.modeling_bert.BertPreTrainedModel._init_weights with BertLMPredictionHead->RobertaLMHead
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, nn.Linear):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, RobertaLMHead):
+            module.bias.data.zero_()
+
+
+@auto_docstring(
+    custom_intro="""
+    The model can behave as an encoder (with only self-attention) as well as a decoder, in which case a layer of
+    cross-attention is added between the self-attention layers, following the architecture described in [Attention is
+    all you need](https://huggingface.co/papers/1706.03762) by Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit,
+    Llion Jones, Aidan N. Gomez, Lukasz Kaiser and Illia Polosukhin.
+
+    To behave as an decoder the model needs to be initialized with the `is_decoder` argument of the configuration set
+    to `True`. To be used in a Seq2Seq model, the model needs to initialized with both `is_decoder` argument and
+    `add_cross_attention` set to `True`; an `encoder_hidden_states` is then expected as an input to the forward pass.
+    """
+)
+# Copied from transformers.models.bert.modeling_bert.BertModel with Bert->Roberta, BERT->ROBERTA
+class RobertaModel(RobertaPreTrainedModel):
+    _no_split_modules = ["RobertaEmbeddings", "RobertaLayer"]
+
+    def __init__(self, config, add_pooling_layer=True):
+        r"""
+        add_pooling_layer (bool, *optional*, defaults to `True`):
+            Whether to add a pooling layer
+        """
+        super().__init__(config)
+        self.config = config
+
+        self.embeddings = RobertaEmbeddings(config)
+        self.encoder = RobertaEncoder(config)
+
+        self.pooler = RobertaPooler(config) if add_pooling_layer else None
+
+        self.attn_implementation = config._attn_implementation
+        self.position_embedding_type = config.position_embedding_type
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_input_embeddings(self):
+        return self.embeddings.word_embeddings
+
+    def set_input_embeddings(self, value):
+        self.embeddings.word_embeddings = value
+
+    def _prune_heads(self, heads_to_prune):
+        """
+        Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
+        class PreTrainedModel
+        """
+        for layer, heads in heads_to_prune.items():
+            self.encoder.layer[layer].attention.prune_heads(heads)
+
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        token_type_ids: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[Cache] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.Tensor] = None,
+    ) -> Union[tuple[torch.Tensor], BaseModelOutputWithPoolingAndCrossAttentions]:
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if self.config.is_decoder:
+            use_cache = use_cache if use_cache is not None else self.config.use_cache
+        else:
+            use_cache = False
+
+        if input_ids is not None and inputs_embeds is not None:
+            raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
+   

@@ -1,0 +1,389 @@
+[
+  {
+    "id": "sample_001",
+    "title": "About Agent Copilot",
+    "url": "https://help.mypurecloud.com/articles/about-agent-copilot/",
+    "content": "Agent Copilot is an AI-powered feature in Genesys Cloud that provides real-time assistance to contact center agents during customer interactions. It uses natural language understanding (NLU) and machine learning to analyze conversations and provide relevant suggestions, knowledge articles, and next-best-action recommendations.\n\nKey Features:\n- Real-time response suggestions based on conversation context\n- Automatic knowledge article retrieval from connected knowledge bases\n- Sentiment analysis to detect customer emotions\n- Next-best-action recommendations for optimal customer outcomes\n- Seamless integration with Genesys Cloud desktop\n\nAgent Copilot helps reduce average handle time (AHT), improve first contact resolution (FCR), and enhance overall customer satisfaction by empowering agents with AI-driven insights during live interactions.\n\nConfiguration Requirements:\n1. Enable Agent Copilot in your organization settings\n2. Connect knowledge bases for article suggestions\n3. Configure NLU confidence thresholds\n4. Set up agent desktop integration\n5. Train the model with historical conversation data\n\nBenefits for Contact Centers:\n- 15-25% reduction in Average Handle Time\n- 10-20% improvement in First Contact Resolution\n- Higher agent satisfaction and reduced training time\n- Consistent responses across all customer interactions",
+    "category": "Agent Copilot",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632774"
+  },
+  {
+    "id": "sample_002",
+    "title": "Configure Agent Copilot",
+    "url": "https://help.mypurecloud.com/articles/configure-agent-copilot/",
+    "content": "To configure Agent Copilot in Genesys Cloud:\n\nStep 1: Enable Agent Copilot\n- Navigate to Admin > Organization Settings > Features\n- Enable the Agent Copilot feature toggle\n- Select the queues where Agent Copilot should be active\n\nStep 2: Configure Knowledge Sources\n- Go to Admin > Knowledge > Knowledge Bases\n- Select or create a knowledge base\n- Enable \"Use for Agent Copilot\" option\n- Ensure articles are published and categorized\n\nStep 3: Set NLU Confidence Thresholds\n- Navigate to Admin > AI > Agent Copilot Settings\n- Set minimum confidence score (recommended: 0.7)\n- Configure suggestion display rules\n- Set maximum suggestions per interaction (recommended: 3-5)\n\nStep 4: Configure Agent Desktop\n- Open Admin > Contact Center > Agent Desktop\n- Enable Agent Copilot panel in desktop layout\n- Position the panel (right side recommended)\n- Configure keyboard shortcuts for quick access\n\nStep 5: Test and Validate\n- Run test conversations with sample scenarios\n- Verify suggestions appear correctly\n- Check knowledge article relevance\n- Adjust confidence thresholds if needed\n\nTroubleshooting Common Issues:\n- If suggestions don't appear, check NLU confidence threshold\n- Verify knowledge base is properly connected\n- Ensure agents have correct permissions\n- Check that queues are configured for Agent Copilot",
+    "category": "Agent Copilot",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632782"
+  },
+  {
+    "id": "sample_003",
+    "title": "Troubleshoot Agent Copilot Issues",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-agent-copilot/",
+    "content": "Common Agent Copilot issues and solutions:\n\nIssue: Agent Copilot suggestions not appearing\nCauses and Solutions:\n1. NLU confidence threshold too high\n   - Navigate to Admin > AI > Agent Copilot Settings\n   - Lower the confidence threshold (try 0.6)\n   - Test with new conversations\n\n2. Knowledge base not connected\n   - Go to Admin > Knowledge > Knowledge Bases\n   - Verify the knowledge base is enabled for Agent Copilot\n   - Check article status (must be Published)\n\n3. Queue not configured\n   - Open Admin > Contact Center > Queues\n   - Select the queue and enable Agent Copilot\n   - Verify feature settings are saved\n\n4. Agent permissions missing\n   - Check Admin > People > Roles\n   - Ensure agent role has Agent Copilot permissions\n   - Verify user is assigned correct role\n\nIssue: Irrelevant suggestions appearing\nSolutions:\n- Review and update knowledge base articles\n- Adjust NLU model training\n- Increase confidence threshold\n- Add negative examples to training data\n\nIssue: Slow suggestion response time\nSolutions:\n- Check network connectivity\n- Verify knowledge base size (optimize if too large)\n- Review integration performance\n- Contact Genesys support if issues persist\n\nIssue: Duplicate suggestions\nSolutions:\n- Review knowledge base for duplicate articles\n- Merge similar content\n- Update article categories and tags\n\nBest Practices:\n- Regularly review and update knowledge articles\n- Monitor suggestion acceptance rates\n- Train NLU model with new conversation patterns\n- Gather agent feedback for continuous improvement",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632783"
+  },
+  {
+    "id": "sample_004",
+    "title": "About Genesys Cloud Routing",
+    "url": "https://help.mypurecloud.com/articles/about-routing/",
+    "content": "Genesys Cloud Routing intelligently directs customer interactions to the most appropriate agent based on skills, availability, and business rules.\n\nRouting Methods:\n1. Skills-Based Routing - Match customer needs with agent skills\n2. Priority Routing - Handle high-priority customers first\n3. Bullseye Routing - Expand search rings until agent found\n4. Preferred Agent Routing - Route to previously connected agent\n5. Direct Routing - Route to specific agent or queue\n\nKey Concepts:\n- Queues: Collections of agents handling similar interactions\n- Skills: Agent capabilities (language, product knowledge, etc.)\n- Routing Rules: Logic determining agent selection\n- Evaluation Criteria: Factors for agent matching\n\nConfiguration Steps:\n1. Create queues for different interaction types\n2. Define skills and assign to agents\n3. Configure routing rules in Architect\n4. Set up overflow and failover rules\n5. Test routing logic with sample interactions\n\nAdvanced Features:\n- Predictive routing using AI/ML\n- Real-time queue monitoring\n- Automatic skill adjustment\n- Cross-queue routing\n- Time-based routing rules\n\nPerformance Optimization:\n- Monitor queue wait times\n- Adjust routing priorities based on SLAs\n- Use analytics to identify bottlenecks\n- Regular review of skill assignments",
+    "category": "Routing",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632784"
+  },
+  {
+    "id": "sample_005",
+    "title": "About Web Messaging",
+    "url": "https://help.mypurecloud.com/articles/about-web-messaging/",
+    "content": "Web Messaging enables asynchronous conversations between customers and agents through your website or mobile app.\n\nKey Benefits:\n- Persistent conversation history\n- Asynchronous communication (no real-time requirement)\n- Rich media support (images, files, cards)\n- Bot integration capability\n- Seamless handoff to human agents\n\nComponents:\n1. Messenger Widget - Customer-facing chat interface\n2. Agent Desktop - Agent response interface\n3. Message Flow - Architect flow for routing\n4. Knowledge Base - Self-service content\n5. Bot Integration - Automated responses\n\nSetup Process:\n1. Create Messenger deployment in Admin\n2. Configure widget appearance and behavior\n3. Add JavaScript snippet to website\n4. Create message flow in Architect\n5. Assign to queue and test\n\nMessenger Features:\n- Customizable branding (colors, logo)\n- Proactive messaging triggers\n- File attachment support\n- Typing indicators\n- Read receipts\n- Conversation history\n\nBot Integration:\n- Connect Genesys Bot Flow or third-party bots\n- Configure handoff rules to human agents\n- Set up intent recognition\n- Create fallback responses\n\nBest Practices:\n- Set clear expectations for response time\n- Use proactive messaging strategically\n- Implement knowledge articles for self-service\n- Monitor customer satisfaction scores\n- Regular review of conversation analytics",
+    "category": "Web Messaging",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632785"
+  },
+  {
+    "id": "sample_006",
+    "title": "About Quality Management",
+    "url": "https://help.mypurecloud.com/articles/about-quality-management/",
+    "content": "Quality Management in Genesys Cloud enables organizations to evaluate and improve agent performance through interaction reviews, coaching, and analytics.\n\nKey Components:\n1. Evaluation Forms - Customizable scorecards\n2. Calibration - Ensure evaluator consistency\n3. Coaching - Agent development tools\n4. Speech Analytics - Automated insights\n5. Screen Recording - Visual context\n\nEvaluation Process:\n1. Select interactions for review\n2. Apply evaluation form criteria\n3. Score agent performance\n4. Provide feedback and coaching\n5. Track improvement over time\n\nCreating Evaluation Forms:\n- Navigate to Admin > Quality > Forms\n- Define questions and scoring criteria\n- Set up weighted categories\n- Configure critical question flags\n- Enable auto-fail conditions\n\nSpeech and Text Analytics:\n- Automatic sentiment detection\n- Topic and intent identification\n- Silence and overtalk detection\n- Compliance keyword monitoring\n- Trend analysis and reporting\n\nCoaching Tools:\n- Create coaching appointments\n- Attach evaluated interactions\n- Set development goals\n- Track agent progress\n- Schedule follow-up reviews\n\nBest Practices:\n- Evaluate representative sample of interactions\n- Calibrate evaluators regularly\n- Focus coaching on specific behaviors\n- Use analytics to identify patterns\n- Recognize top performers",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632786"
+  },
+  {
+    "id": "sample_007",
+    "title": "About Knowledge Workbench",
+    "url": "https://help.mypurecloud.com/articles/about-knowledge-workbench/",
+    "content": "Knowledge Workbench is Genesys Cloud's built-in knowledge management system for creating, organizing, and delivering knowledge content.\n\nKey Features:\n- Article authoring and editing\n- Version control and approval workflows\n- Category and tag organization\n- Search and discovery\n- Integration with Agent Copilot\n\nCreating Knowledge Articles:\n1. Navigate to Admin > Knowledge > Workbench\n2. Click \"Create Article\"\n3. Enter title and content\n4. Add categories and tags\n5. Set visibility and permissions\n6. Submit for review/approval\n7. Publish article\n\nArticle Best Practices:\n- Write clear, concise titles\n- Use headers and bullet points\n- Include step-by-step instructions\n- Add relevant images/screenshots\n- Keep content up-to-date\n- Use consistent formatting\n\nIntegration Points:\n- Agent Copilot: Auto-suggest articles during conversations\n- Bot Flows: Self-service knowledge retrieval\n- Web Widget: Customer-facing knowledge search\n- External Apps: API access to knowledge\n\nManaging Knowledge Base:\n- Regular content audits\n- Track article usage analytics\n- Gather user feedback\n- Archive outdated content\n- Maintain consistent taxonomy\n\nSearch Optimization:\n- Use descriptive titles\n- Add relevant synonyms\n- Include common misspellings\n- Tag with related topics\n- Structure content for scanning",
+    "category": "Knowledge Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632786"
+  },
+  {
+    "id": "sample_008",
+    "title": "About Workforce Management",
+    "url": "https://help.mypurecloud.com/articles/about-workforce-management/",
+    "content": "Workforce Management (WFM) in Genesys Cloud helps optimize staffing levels and agent schedules to meet service level goals.\n\nCore Functions:\n1. Forecasting - Predict interaction volumes\n2. Scheduling - Create optimal agent schedules\n3. Adherence - Monitor schedule compliance\n4. Intraday - Real-time adjustments\n5. Time Off - Manage agent requests\n\nForecasting:\n- Historical data analysis\n- Pattern recognition (daily, weekly, seasonal)\n- Special event handling\n- Multi-channel forecasting\n- Accuracy tracking\n\nScheduling:\n- Automatic schedule generation\n- Skill-based scheduling\n- Break and lunch optimization\n- Shift bidding support\n- Schedule publishing\n\nAdherence Monitoring:\n- Real-time status tracking\n- Out-of-adherence alerts\n- Historical adherence reports\n- Exception management\n- Coaching triggers\n\nIntraday Management:\n- Compare forecast vs actual\n- Reforecast based on trends\n- Schedule adjustments\n- Overtime/VTO management\n- Queue health monitoring\n\nBest Practices:\n- Update forecasts regularly\n- Balance service levels with costs\n- Communicate schedule changes promptly\n- Track adherence metrics consistently\n- Review and optimize scheduling rules\n\nIntegration Points:\n- ACD for real-time data\n- Quality Management for performance\n- Analytics for reporting\n- HR systems for time tracking",
+    "category": "Workforce Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632787"
+  },
+  {
+    "id": "sample_009",
+    "title": "Agent Copilot Metrics and Analytics",
+    "url": "https://help.mypurecloud.com/articles/agent-copilot-metrics-and-analytics/",
+    "content": "Monitor and analyze Agent Copilot performance to optimize AI assistance.\n\nKey Metrics:\n1. Suggestion Acceptance Rate - % of suggestions used by agents\n2. Knowledge Article Clicks - Articles accessed via Copilot\n3. Response Time Impact - Effect on average handle time\n4. First Contact Resolution - FCR improvement tracking\n5. Customer Satisfaction - CSAT correlation\n\nViewing Analytics:\n- Navigate to Analytics > Agent Copilot\n- Select date range and filters\n- View dashboard widgets\n- Export data for analysis\n\nDashboard Components:\n- Acceptance rate trend\n- Top suggested articles\n- Agent usage comparison\n- Queue performance impact\n- Sentiment correlation\n\nPerformance Analysis:\n- Compare pre/post Copilot metrics\n- Identify high-performing agents\n- Find training opportunities\n- Optimize knowledge content\n- Adjust confidence thresholds\n\nReporting:\n- Schedule automated reports\n- Export to CSV/Excel\n- API access for BI tools\n- Custom report builder\n- Share with stakeholders\n\nOptimization Actions:\n- Low acceptance rate: Review suggestion quality\n- Missing suggestions: Check knowledge coverage\n- Slow responses: Optimize infrastructure\n- Inconsistent results: Retrain NLU model\n\nROI Tracking:\n- Calculate AHT reduction\n- Measure FCR improvement\n- Track agent satisfaction\n- Monitor customer feedback\n- Quantify cost savings",
+    "category": "Agent Copilot",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632787"
+  },
+  {
+    "id": "sample_010",
+    "title": "Configure Queue Settings",
+    "url": "https://help.mypurecloud.com/articles/configure-queue-settings/",
+    "content": "Configure queues to manage how interactions are routed to agents in Genesys Cloud.\n\nQueue Configuration Steps:\n1. Navigate to Admin > Contact Center > Queues\n2. Click \"Create Queue\" or select existing queue\n3. Configure general settings\n4. Set up routing and evaluation methods\n5. Assign members and skills\n6. Save and activate\n\nGeneral Settings:\n- Queue Name: Descriptive identifier\n- Division: Organizational unit\n- Description: Purpose documentation\n- Media Settings: Channels supported\n- ACW Settings: After call work time\n\nRouting Configuration:\n- Evaluation Method: How to select agents\n  - All Skills Matching\n  - Best Available Agent\n  - Sequential\n  - Round Robin\n- Routing Rules: Priority and filtering\n- Overflow: Backup queue handling\n\nAgent Assignment:\n- Direct Members: Specific agents\n- Groups: Agent groups\n- Skills: Required/preferred skills\n- Skill Requirements: Minimum proficiency\n\nAdvanced Settings:\n- Service Level: Target answer time\n- Abandon Time: Call abandonment threshold\n- Auto-Answer: Automatic pickup\n- Recording: Interaction recording rules\n- Whisper Audio: Agent announcements\n\nIntegration Options:\n- Enable Agent Copilot\n- Connect knowledge bases\n- Configure callbacks\n- Set up chat/messaging\n- Link to Architect flows\n\nMonitoring:\n- Real-time queue dashboard\n- Historical reports\n- Alert configuration\n- SLA tracking\n- Agent utilization",
+    "category": "Queues",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632788"
+  },
+  {
+    "id": "sample_011",
+    "title": "Agent Copilot NLU Confidence Tuning",
+    "url": "https://help.mypurecloud.com/articles/agent-copilot-nlu-tuning/",
+    "content": "Optimize Agent Copilot's suggestion accuracy by tuning NLU confidence thresholds.\n\nUnderstanding NLU Confidence:\nThe NLU confidence threshold determines the minimum score required for Agent Copilot to display a suggestion. A higher threshold means more accurate but fewer suggestions; lower threshold means more suggestions but potentially less relevant.\n\nRecommended Threshold Settings:\n- Start at 0.7 (70%) for balanced accuracy\n- Lower to 0.5-0.6 if suggestions rarely appear\n- Raise to 0.8-0.9 for high-precision requirements\n\nHow to Adjust NLU Confidence:\n1. Navigate to Admin > AI > Agent Copilot Settings\n2. Find \"NLU Confidence Threshold\" slider\n3. Adjust value (0.0 to 1.0)\n4. Click Save\n5. Test with sample conversations\n\nTroubleshooting Low Suggestion Rates:\n- If suggestions rarely appear, threshold may be too high\n- Check knowledge base content quality\n- Ensure articles match common customer queries\n- Review conversation patterns in Analytics\n\nTroubleshooting Irrelevant Suggestions:\n- If suggestions are off-topic, threshold may be too low\n- Review and improve knowledge base articles\n- Add negative examples to training\n- Consider article categorization\n\nBest Practices:\n- Monitor suggestion acceptance rates weekly\n- Adjust threshold based on agent feedback\n- Keep knowledge base articles focused and specific\n- Regular review of NLU performance metrics",
+    "category": "Agent Copilot",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632789"
+  },
+  {
+    "id": "sample_012",
+    "title": "Agent Copilot FAQ and Common Issues",
+    "url": "https://help.mypurecloud.com/articles/agent-copilot-faq/",
+    "content": "Frequently asked questions and solutions for Agent Copilot issues.\n\nQ: Why aren't Agent Copilot suggestions appearing?\nA: Common causes include:\n1. NLU confidence threshold too high - Lower to 0.6 in Admin > AI > Agent Copilot Settings\n2. Queue not configured - Enable Agent Copilot in Admin > Contact Center > Queues\n3. Knowledge base not connected - Link in Admin > Knowledge > Knowledge Bases\n4. Agent permissions missing - Check role has Agent Copilot access\n\nQ: How do I enable Agent Copilot for a specific queue?\nA: Navigate to Admin > Contact Center > Queues > Select queue > Enable \"Agent Copilot\" toggle > Save\n\nQ: Why are suggestions slow to appear?\nA: Check these factors:\n- Network latency to Genesys Cloud\n- Large knowledge base (consider optimizing)\n- Browser performance issues\n- Multiple concurrent processes\n\nQ: Can I customize which knowledge bases Agent Copilot uses?\nA: Yes. Go to Admin > AI > Agent Copilot Settings > Knowledge Sources and select specific knowledge bases.\n\nQ: How do I train Agent Copilot with my own data?\nA: Upload conversation transcripts and Q&A pairs via Admin > AI > Training Data. The system learns from accepted and rejected suggestions over time.\n\nQ: What permissions do agents need?\nA: Agents need the \"Agent Copilot > View\" permission in their assigned role.\n\nQ: How do I measure Agent Copilot effectiveness?\nA: Use Analytics > Agent Copilot dashboard to view:\n- Suggestion acceptance rate\n- Time saved per interaction\n- Knowledge article usage\n- Agent satisfaction scores",
+    "category": "Agent Copilot",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632789"
+  },
+  {
+    "id": "sample_013",
+    "title": "Skills-Based Routing Configuration",
+    "url": "https://help.mypurecloud.com/articles/skills-based-routing/",
+    "content": "Configure skills-based routing to match customers with the most qualified agents.\n\nWhat is Skills-Based Routing?\nSkills-based routing matches incoming interactions to agents based on their assigned skills and proficiency levels. This ensures customers are connected to agents best equipped to handle their specific needs.\n\nCreating Skills:\n1. Navigate to Admin > Contact Center > Skills\n2. Click \"Create Skill\"\n3. Enter skill name (e.g., \"Spanish\", \"Billing\", \"Technical Support\")\n4. Set skill category (optional)\n5. Save\n\nAssigning Skills to Agents:\n1. Go to Admin > People > Users\n2. Select an agent\n3. Click \"Skills\" tab\n4. Add skills with proficiency levels (1-5)\n5. Save changes\n\nConfiguring Skill Requirements:\n1. Open Admin > Contact Center > Queues\n2. Select target queue\n3. Under \"Routing\" section, click \"Skill Requirements\"\n4. Add required skills\n5. Set minimum proficiency level\n6. Configure \"All Skills\" vs \"Any Skill\" matching\n\nProficiency Levels:\n- Level 1: Basic knowledge\n- Level 2: Working knowledge\n- Level 3: Proficient\n- Level 4: Expert\n- Level 5: Master\n\nBest Practices:\n- Keep skill definitions clear and specific\n- Regularly audit agent skill assignments\n- Use proficiency levels meaningfully\n- Monitor queue metrics by skill",
+    "category": "Routing",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632790"
+  },
+  {
+    "id": "sample_014",
+    "title": "Bullseye Routing Explained",
+    "url": "https://help.mypurecloud.com/articles/bullseye-routing/",
+    "content": "Bullseye routing progressively expands the search for available agents in concentric rings.\n\nHow Bullseye Routing Works:\n1. First Ring: Look for agents with all required skills at highest proficiency\n2. Second Ring: Expand to agents with slightly lower proficiency\n3. Third Ring: Further expand skill requirements\n4. Continue until agent found or timeout reached\n\nConfiguration Steps:\n1. Navigate to Admin > Contact Center > Queues\n2. Select queue and go to \"Routing\" tab\n3. Choose \"Bullseye\" as evaluation method\n4. Configure ring settings:\n   - Ring 1: Skills required, proficiency minimum\n   - Ring 2: Relaxed requirements\n   - Ring 3: Further relaxation\n   - Timeout between rings\n\nExample Configuration:\nRing 1 (0-30 seconds):\n- Required: \"Technical Support\" skill\n- Minimum proficiency: 4\n\nRing 2 (30-60 seconds):\n- Required: \"Technical Support\" skill\n- Minimum proficiency: 2\n\nRing 3 (60+ seconds):\n- Any available agent in queue\n\nBenefits:\n- Optimal skill matching when possible\n- Graceful degradation under load\n- Prevents long wait times\n- Balances quality with speed\n\nMonitoring:\n- Track which ring most interactions complete in\n- Adjust ring timings based on data\n- Monitor abandoned call rates",
+    "category": "Routing",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632791"
+  },
+  {
+    "id": "sample_015",
+    "title": "Priority Routing Setup",
+    "url": "https://help.mypurecloud.com/articles/priority-routing/",
+    "content": "Configure priority routing to handle high-value customers or urgent issues first.\n\nUnderstanding Priority Routing:\nPriority routing assigns a priority score to interactions, ensuring higher-priority items are handled first. Priorities range from 0 (lowest) to 100 (highest).\n\nSetting Interaction Priority:\nMethod 1: In Architect Flow\n- Use \"Set Priority\" action\n- Set based on customer data, IVR selections, or external lookups\n\nMethod 2: Via Queue Configuration\n- Set default priority for queue\n- All interactions inherit this priority\n\nMethod 3: Via API\n- Set priority programmatically when creating interaction\n\nPriority Factors to Consider:\n- Customer tier (Platinum > Gold > Silver)\n- Issue urgency (outage > question)\n- Wait time (increase priority over time)\n- Business value (high-value transactions)\n\nExample Priority Scheme:\n- VIP Customers: Priority 90\n- Premium Customers: Priority 70\n- Standard Customers: Priority 50\n- Low-priority inquiries: Priority 30\n\nPriority Aging:\nAutomatically increase priority based on wait time:\n- Every 30 seconds: +5 priority\n- Maximum priority: 100\nConfigure in Admin > Contact Center > Queues > Priority Settings\n\nMonitoring:\n- Track average priority at answer\n- Monitor priority distribution\n- Alert on priority aging issues",
+    "category": "Routing",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632791"
+  },
+  {
+    "id": "sample_016",
+    "title": "Preferred Agent Routing",
+    "url": "https://help.mypurecloud.com/articles/preferred-agent-routing/",
+    "content": "Route returning customers to agents they've previously worked with.\n\nWhat is Preferred Agent Routing?\nPreferred Agent Routing attempts to connect customers with agents they've interacted with before, improving continuity and customer satisfaction.\n\nConfiguration:\n1. Navigate to Admin > Contact Center > Queues\n2. Select queue\n3. Enable \"Preferred Agent Routing\"\n4. Configure settings:\n   - Lookup period (how far back to check)\n   - Maximum wait time for preferred agent\n   - Fallback behavior\n\nHow It Works:\n1. Customer initiates contact\n2. System checks interaction history\n3. If previous agent found and available, route to them\n4. If not available, wait or fall back to normal routing\n\nSettings Options:\n- Lookup Period: 7, 14, 30, 60, 90 days\n- Preferred Agent Timeout: 30-300 seconds\n- Fallback: Next best agent or general queue\n\nUse Cases:\n- Account management scenarios\n- Ongoing case follow-ups\n- Relationship-based services\n- Complex multi-session issues\n\nBest Practices:\n- Set reasonable timeout (60-90 seconds typical)\n- Use for high-touch interactions\n- Monitor preferred agent match rates\n- Don't force long waits for preferred routing\n\nMetrics to Track:\n- Preferred agent match rate\n- Customer satisfaction for matched vs unmatched\n- Average wait time difference",
+    "category": "Routing",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632792"
+  },
+  {
+    "id": "sample_017",
+    "title": "Creating Evaluation Forms",
+    "url": "https://help.mypurecloud.com/articles/create-evaluation-forms/",
+    "content": "Build evaluation forms to assess agent performance consistently.\n\nEvaluation Form Components:\n1. Questions - Individual assessment criteria\n2. Groups - Logical groupings of questions\n3. Weights - Importance of each section\n4. Scoring - Point values and thresholds\n\nCreating a New Form:\n1. Navigate to Admin > Quality > Evaluation Forms\n2. Click \"Create Form\"\n3. Add form name and description\n4. Build question groups\n5. Add questions to each group\n6. Configure scoring\n7. Publish form\n\nQuestion Types:\n- Yes/No: Binary assessment\n- Multiple Choice: Select one option\n- Range: Score on scale (1-5, 1-10)\n- Free Text: Evaluator comments\n\nWeighting Questions:\n- Assign percentage weights to groups\n- Total must equal 100%\n- Critical questions can be marked \"Auto-Fail\"\n\nAuto-Fail Questions:\nMark questions where failure should automatically fail entire evaluation:\n- Compliance violations\n- Security breaches\n- Prohibited language\n\nScoring Configuration:\n- Set passing threshold (typically 80%)\n- Configure score display (percentage or points)\n- Enable/disable partial credit\n\nBest Practices:\n- Keep forms focused (20-30 questions max)\n- Group related questions logically\n- Use consistent scoring across forms\n- Review and update forms quarterly",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632793"
+  },
+  {
+    "id": "sample_018",
+    "title": "Coaching Sessions and Development",
+    "url": "https://help.mypurecloud.com/articles/coaching-sessions/",
+    "content": "Create and manage coaching sessions to develop agent skills.\n\nCoaching Overview:\nCoaching in Genesys Cloud connects evaluation results with agent development, creating a closed-loop improvement process.\n\nCreating a Coaching Session:\n1. Go to Performance > Coaching\n2. Click \"Create Coaching Appointment\"\n3. Select agent and supervisor\n4. Attach relevant evaluations or recordings\n5. Set date, time, and duration\n6. Add coaching notes and objectives\n7. Save and notify participants\n\nCoaching Types:\n- One-on-One: Individual agent coaching\n- Group: Team coaching sessions\n- Self-Directed: Agent reviews assigned materials\n\nAttaching Materials:\n- Link specific evaluations\n- Attach interaction recordings\n- Include knowledge articles\n- Add custom documents\n\nSetting Development Goals:\n1. Identify improvement areas from evaluations\n2. Set specific, measurable goals\n3. Assign timeline for achievement\n4. Schedule follow-up sessions\n5. Track progress over time\n\nCoaching Workflow:\n1. Evaluation identifies improvement opportunity\n2. Supervisor creates coaching session\n3. Session conducted with agent\n4. Goals documented\n5. Follow-up scheduled\n6. Progress measured in subsequent evaluations\n\nBest Practices:\n- Schedule regular coaching (weekly/bi-weekly)\n- Focus on 1-2 improvement areas per session\n- Use specific examples from recordings\n- Document agreed actions\n- Follow up on previous goals",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632793"
+  },
+  {
+    "id": "sample_019",
+    "title": "Speech and Text Analytics",
+    "url": "https://help.mypurecloud.com/articles/speech-text-analytics/",
+    "content": "Leverage AI-powered analytics to gain insights from customer interactions.\n\nSpeech and Text Analytics Capabilities:\n- Sentiment analysis: Detect customer emotions\n- Topic detection: Identify conversation subjects\n- Keyword spotting: Find specific terms\n- Silence detection: Identify dead air\n- Overtalk detection: Find interruptions\n- Compliance monitoring: Detect required phrases\n\nSetting Up Analytics:\n1. Navigate to Admin > Quality > Analytics Settings\n2. Enable Speech Analytics and/or Text Analytics\n3. Configure topics and keywords\n4. Set up compliance phrases\n5. Configure sentiment thresholds\n\nCreating Topics:\n1. Go to Admin > Quality > Topics\n2. Click \"Create Topic\"\n3. Add topic name (e.g., \"Cancellation Request\")\n4. Add associated phrases and keywords\n5. Configure detection settings\n6. Activate topic\n\nCompliance Monitoring:\nConfigure required and prohibited phrases:\n- Required: Disclosure statements, greetings\n- Prohibited: Profanity, competitor mentions\n\nSentiment Analysis:\nAutomatic detection of:\n- Positive sentiment: Satisfaction, gratitude\n- Negative sentiment: Frustration, anger\n- Neutral: Informational exchanges\n- Sentiment shifts within conversation\n\nUsing Analytics Data:\n- Filter evaluations by sentiment\n- Search interactions by topic\n- Identify training opportunities\n- Monitor compliance rates\n- Track trending issues\n\nReports Available:\n- Topic trend analysis\n- Sentiment distribution\n- Compliance scorecard\n- Agent performance by topic",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632794"
+  },
+  {
+    "id": "sample_020",
+    "title": "Calibration for Evaluator Consistency",
+    "url": "https://help.mypurecloud.com/articles/evaluation-calibration/",
+    "content": "Ensure consistent evaluation scoring across all evaluators through calibration.\n\nWhat is Calibration?\nCalibration is the process of comparing evaluator scores on the same interaction to identify and address scoring inconsistencies.\n\nWhy Calibration Matters:\n- Ensures fair agent treatment\n- Identifies evaluator bias\n- Maintains evaluation integrity\n- Supports defensible performance decisions\n\nRunning a Calibration Session:\n1. Select an interaction for calibration\n2. Assign to multiple evaluators (3-5 recommended)\n3. Each evaluator scores independently\n4. Compare scores and discuss differences\n5. Align on correct interpretation\n6. Document calibration decisions\n\nCalibration Metrics:\n- Score variance: Difference between evaluators\n- Inter-rater reliability: Agreement percentage\n- Calibration drift: Changes over time\n\nAddressing Score Variance:\nHigh variance on specific questions indicates:\n- Unclear question wording\n- Different interpretation of criteria\n- Need for additional training\n\nCalibration Frequency:\n- New evaluators: Weekly for first month\n- Experienced evaluators: Monthly\n- After form changes: Immediately\n- When variance detected: As needed\n\nBest Practices:\n- Use diverse interaction samples\n- Include borderline cases\n- Document calibration decisions\n- Update evaluation guides\n- Track calibration scores over time",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632795"
+  },
+  {
+    "id": "sample_021",
+    "title": "Quality Management Best Practices",
+    "url": "https://help.mypurecloud.com/articles/qm-best-practices/",
+    "content": "Implement a world-class quality management program with these best practices.\n\nProgram Foundation:\n1. Define quality standards and criteria\n2. Create consistent evaluation forms\n3. Train evaluators thoroughly\n4. Calibrate regularly\n5. Connect evaluations to coaching\n6. Track improvement over time\n\nEvaluation Volume Guidelines:\n- Minimum: 4 evaluations per agent per month\n- Recommended: 8-12 evaluations per agent per month\n- New agents: 2-3x normal volume initially\n\nSample Selection:\n- Random sampling for general quality\n- Targeted sampling for specific issues\n- Customer-flagged interactions\n- High-value transaction reviews\n- Compliance-focused sampling\n\nFeedback Delivery:\n- Timely: Within 48-72 hours of interaction\n- Specific: Reference exact moments\n- Balanced: Recognize strengths and improvements\n- Actionable: Provide clear next steps\n- Documented: Record in system\n\nMetrics to Track:\n- Average evaluation score\n- Score trends over time\n- Evaluator consistency\n- Coaching completion rates\n- Score-to-satisfaction correlation\n\nContinuous Improvement:\n- Review evaluation forms quarterly\n- Update criteria based on business changes\n- Gather agent feedback on process\n- Benchmark against industry standards\n- Share best practice recordings",
+    "category": "Quality Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632796"
+  },
+  {
+    "id": "sample_022",
+    "title": "Troubleshoot Web Messaging Issues",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-web-messaging/",
+    "content": "Common Web Messaging issues and solutions.\n\nIssue: Messenger widget not appearing on website\nSolutions:\n1. Verify deployment is active in Admin > Messenger\n2. Check JavaScript snippet is correctly installed\n3. Confirm no ad-blockers are interfering\n4. Verify domain is whitelisted in deployment settings\n5. Check browser console for errors\n\nIssue: Messages not being delivered\nSolutions:\n1. Check queue assignment in message flow\n2. Verify agents are available and logged in\n3. Confirm ACD settings are correct\n4. Review message flow in Architect\n5. Check integration status\n\nIssue: Bot not responding\nSolutions:\n1. Verify bot flow is published\n2. Check intent recognition settings\n3. Confirm bot is assigned to deployment\n4. Review bot flow logic in Architect\n5. Check NLU training data\n\nIssue: File attachments failing\nSolutions:\n1. Check file size limits (10MB max)\n2. Verify file type is allowed\n3. Confirm attachment setting is enabled\n4. Check storage quota\n5. Review security settings\n\nIssue: Chat history not persisting\nSolutions:\n1. Enable conversation history in deployment\n2. Check customer authentication\n3. Verify cookie settings\n4. Confirm storage configuration\n\nDiagnostic Steps:\n1. Check Admin > Messenger > Deployments status\n2. Review browser developer tools console\n3. Test in incognito/private window\n4. Check network requests for errors\n5. Review Architect flow execution logs",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632796"
+  },
+  {
+    "id": "sample_023",
+    "title": "Troubleshoot Call Quality Issues",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-call-quality/",
+    "content": "Diagnose and resolve voice call quality problems.\n\nCommon Call Quality Issues:\n- Choppy or distorted audio\n- One-way audio\n- Echo\n- Call drops\n- Delayed audio\n\nTroubleshooting Steps:\n\n1. Check Network Quality:\n- Run network readiness test\n- Verify bandwidth (100kbps per call minimum)\n- Check for jitter (under 30ms target)\n- Monitor packet loss (under 1% target)\n- Validate latency (under 150ms recommended)\n\n2. WebRTC Phone Issues:\n- Update browser to latest version\n- Clear browser cache\n- Disable browser extensions\n- Check microphone/speaker permissions\n- Test with different headset\n\n3. Edge/Trunk Issues:\n- Verify SIP trunk status\n- Check codec configuration\n- Review firewall settings\n- Confirm NAT settings\n- Test with packet capture\n\n4. Audio Quality Metrics:\nAccess via Performance > Interactions > Voice tab:\n- MOS score (target > 3.5)\n- Jitter measurements\n- Packet loss percentage\n- Latency readings\n\n5. Common Fixes:\n- Switch from WiFi to wired connection\n- Close bandwidth-heavy applications\n- Upgrade network equipment\n- Adjust QoS settings\n- Update audio drivers\n\nEscalation Path:\n1. Gather call ID and timestamps\n2. Export quality metrics\n3. Collect network diagnostics\n4. Contact Genesys support with data",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632797"
+  },
+  {
+    "id": "sample_024",
+    "title": "Troubleshoot Integration Errors",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-integrations/",
+    "content": "Resolve common integration and data action issues.\n\nData Action Troubleshooting:\n\nIssue: Data action failing with timeout\nSolutions:\n1. Increase timeout setting (Admin > Integrations)\n2. Optimize external API response time\n3. Check network connectivity\n4. Review authentication credentials\n5. Verify endpoint availability\n\nIssue: Authentication errors\nSolutions:\n1. Verify OAuth credentials\n2. Check token expiration settings\n3. Confirm scopes are correct\n4. Review API key validity\n5. Test authentication separately\n\nIssue: Invalid response format\nSolutions:\n1. Check response parsing configuration\n2. Verify JSON/XML schema matches\n3. Review data transformation rules\n4. Add error handling for edge cases\n5. Test with sample responses\n\nIntegration Health Check:\n1. Navigate to Admin > Integrations\n2. Check status indicator (green = healthy)\n3. Review error logs\n4. Test connection\n5. Verify configuration\n\nCommon Integration Types:\n- Salesforce: Check connected app settings\n- AWS: Verify IAM permissions\n- Custom REST: Check URL and headers\n- Database: Verify connection string\n- CRM: Check field mappings\n\nDebugging Steps:\n1. Enable debug logging\n2. Review execution history\n3. Check input/output mappings\n4. Validate data transformations\n5. Test in isolation\n\nBest Practices:\n- Implement retry logic\n- Add meaningful error messages\n- Monitor integration health\n- Set up alerting\n- Document configurations",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632798"
+  },
+  {
+    "id": "sample_025",
+    "title": "Troubleshoot Reporting and Analytics",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-analytics/",
+    "content": "Resolve issues with reports and analytics data.\n\nIssue: Report shows no data\nSolutions:\n1. Verify date range includes data\n2. Check filter settings\n3. Confirm user has proper permissions\n4. Verify division access\n5. Check data availability (processing delay)\n\nIssue: Metrics seem incorrect\nCommon Causes:\n1. Different time zones applied\n2. Filter excluding expected data\n3. Metric definition misunderstanding\n4. Data still processing\n5. Calculation differences (real-time vs historical)\n\nIssue: Export failing or incomplete\nSolutions:\n1. Reduce date range\n2. Simplify report criteria\n3. Check file size limits\n4. Try different export format\n5. Schedule during off-peak hours\n\nIssue: Dashboard not loading\nSolutions:\n1. Clear browser cache\n2. Check internet connectivity\n3. Verify permissions\n4. Try different browser\n5. Contact support if persists\n\nData Processing Timeline:\n- Real-time data: Immediate\n- Historical metrics: 15-30 minute delay\n- Complex analytics: Up to 24 hours\n- Aggregated reports: End of day\n\nPermission Requirements:\n- Analytics > View: Basic viewing\n- Analytics > Export: Download data\n- Analytics > Admin: All access\n- Division-specific: Limited to assigned divisions\n\nValidation Steps:\n1. Compare with real-time dashboard\n2. Check data in different views\n3. Verify calculation logic\n4. Cross-reference with source systems",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632798"
+  },
+  {
+    "id": "sample_026",
+    "title": "Troubleshoot Agent Desktop Issues",
+    "url": "https://help.mypurecloud.com/articles/troubleshoot-agent-desktop/",
+    "content": "Fix common agent desktop and softphone problems.\n\nIssue: Cannot log into agent desktop\nSolutions:\n1. Clear browser cache and cookies\n2. Check network connectivity\n3. Verify credentials\n4. Confirm station/phone assignment\n5. Check browser compatibility\n\nIssue: Softphone not connecting\nSolutions:\n1. Allow microphone permissions\n2. Check WebRTC compatibility\n3. Disable VPN if applicable\n4. Verify firewall settings\n5. Try different browser\n\nIssue: Status not changing correctly\nSolutions:\n1. Check queue membership\n2. Verify presence settings\n3. Review auto-answer configuration\n4. Check wrap-up settings\n5. Confirm routing status\n\nIssue: Screen recording not working\nSolutions:\n1. Check browser permissions\n2. Verify recording policy\n3. Confirm agent consent settings\n4. Check storage availability\n5. Review browser compatibility\n\nIssue: Interactions not alerting\nSolutions:\n1. Check sound settings\n2. Verify notification permissions\n3. Review alerting settings\n4. Check queue assignment\n5. Confirm agent availability\n\nBest Practices:\n- Use supported browsers (Chrome recommended)\n- Clear cache weekly\n- Keep browser updated\n- Use wired headset\n- Close unnecessary tabs\n\nSystem Requirements:\n- Chrome 80+ or Edge 80+\n- 4GB RAM minimum\n- Stable internet (5Mbps+)\n- Supported operating system",
+    "category": "Troubleshooting",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632799"
+  },
+  {
+    "id": "sample_027",
+    "title": "About Digital Bot Flows",
+    "url": "https://help.mypurecloud.com/articles/about-digital-bot-flows/",
+    "content": "Build automated conversation flows for digital channels.\n\nDigital Bot Flow Overview:\nDigital bot flows handle automated interactions on web messaging, SMS, and social channels without human intervention.\n\nKey Components:\n1. Intents: Customer intentions to recognize\n2. Slots: Information to extract\n3. Bot Actions: Automated responses\n4. Handoff: Transfer to human agents\n\nCreating a Bot Flow:\n1. Navigate to Admin > Architect\n2. Select \"Bot Flow\" type\n3. Name your flow\n4. Build conversation logic\n5. Train NLU model\n6. Publish and assign\n\nIntent Configuration:\n- Create intents for common requests\n- Add utterance examples (10-20 per intent)\n- Define required slots\n- Configure fulfillment actions\n\nNLU Training:\n- Add diverse utterance examples\n- Include variations and misspellings\n- Test recognition accuracy\n- Iterate based on results\n\nHandoff to Agent:\nConfigure when bot should transfer:\n- Low confidence scores\n- Customer request\n- Complex issues\n- Negative sentiment\n- Multiple failures\n\nBest Practices:\n- Start with high-volume use cases\n- Keep conversations focused\n- Provide clear options\n- Always offer human fallback\n- Monitor and improve continuously\n\nAnalytics:\n- Containment rate\n- Intent recognition accuracy\n- Handoff rate\n- Customer satisfaction\n- Average conversation length",
+    "category": "Digital Bots",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632800"
+  },
+  {
+    "id": "sample_028",
+    "title": "Architect Flow Design Guide",
+    "url": "https://help.mypurecloud.com/articles/architect-flow-design/",
+    "content": "Design effective IVR and routing flows in Architect.\n\nArchitect Overview:\nArchitect is the visual flow builder for creating IVR menus, routing logic, and automated processes.\n\nFlow Types:\n- Inbound Call: Voice IVR menus\n- In-Queue Call: Hold treatment\n- Outbound Call: Dialer flows\n- Callback: Scheduled callbacks\n- Message: Digital messaging\n- Email: Email routing\n- Bot: Automated conversations\n- Workflow: Background processes\n\nDesign Best Practices:\n1. Plan flow before building\n2. Keep paths simple and short\n3. Use consistent menu structures\n4. Provide escape options\n5. Handle errors gracefully\n\nCommon Actions:\n- Play Audio: Prompts and messages\n- Get Input: DTMF or speech\n- Data Actions: External integrations\n- Transfer: Route to queue/user\n- Disconnect: End interaction\n- Set Variables: Store data\n\nMenu Design:\n- Limit options to 4-5 per menu\n- Most common options first\n- Always include \"0 for agent\"\n- Confirm selections\n- Provide timeout handling\n\nTesting:\n1. Use Architect debug mode\n2. Test all paths\n3. Validate data actions\n4. Check error handling\n5. Test with real scenarios\n\nVersion Control:\n- Save frequently\n- Use meaningful version names\n- Test before publishing\n- Keep rollback option\n- Document changes",
+    "category": "AI Features",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632801"
+  },
+  {
+    "id": "sample_029",
+    "title": "IVR Best Practices",
+    "url": "https://help.mypurecloud.com/articles/ivr-best-practices/",
+    "content": "Optimize your IVR for better customer experience.\n\nIVR Design Principles:\n1. Respect caller time\n2. Speak customer language\n3. Minimize menu depth\n4. Provide shortcuts\n5. Enable easy agent access\n\nMenu Structure:\n- Maximum 3 menu levels deep\n- 4-5 options per menu\n- Clear, concise prompts\n- Natural language options\n- Repeat option always available\n\nPrompt Writing:\nDo:\n- Use active voice\n- Keep prompts under 15 seconds\n- Confirm important information\n- Provide context\n\nDon't:\n- Use jargon\n- Over-apologize\n- Include unnecessary information\n- Force listening to full prompt\n\nSpeech Recognition:\n- Support natural phrases\n- Allow interruption (barge-in)\n- Handle common variations\n- Include confirmation\n- Provide DTMF fallback\n\nPersonalization:\n- Greet by name when known\n- Reference account status\n- Tailor options to history\n- Skip irrelevant menus\n- Remember preferences\n\nSelf-Service Integration:\n- Account balance lookups\n- Order status checks\n- Payment processing\n- Appointment scheduling\n- FAQs and information\n\nMetrics to Track:\n- IVR containment rate\n- Menu opt-out rates\n- Average time in IVR\n- Speech recognition accuracy\n- Customer satisfaction\n\nContinuous Improvement:\n- Analyze drop-off points\n- Review transcriptions\n- Test regularly\n- Update based on feedback\n- A/B test new options",
+    "category": "AI Features",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632801"
+  },
+  {
+    "id": "sample_030",
+    "title": "Callback Configuration",
+    "url": "https://help.mypurecloud.com/articles/configure-callback/",
+    "content": "Set up customer callback functionality.\n\nCallback Types:\n1. In-Queue Callback: Customer requests callback instead of waiting\n2. Scheduled Callback: Customer selects future time\n3. Web Callback: Initiated from website\n\nIn-Queue Callback Setup:\n1. Navigate to Admin > Contact Center > Queues\n2. Select queue\n3. Enable \"Offer Callback\" option\n4. Configure settings:\n   - Minimum wait time before offer\n   - Callback message prompt\n   - Confirmation prompt\n\nArchitect Configuration:\n1. Create callback flow\n2. Add callback offer decision\n3. Configure callback request action\n4. Handle acceptance/rejection\n5. Set callback queue\n\nWeb Callback:\n1. Create widget in Admin > Widgets\n2. Configure callback form\n3. Add JavaScript to website\n4. Connect to Architect flow\n5. Route to appropriate queue\n\nCallback Dialing:\n- Outbound campaigns dial callbacks\n- Or configure automatic callback calling\n- Set retry rules\n- Define business hours\n- Handle voicemail/busy\n\nSettings Options:\n- Maximum callback wait time\n- Number of retry attempts\n- Retry interval\n- Operating hours\n- Overflow handling\n\nReporting:\n- Callbacks requested\n- Callbacks completed\n- Average time to callback\n- Callback abandonment\n- Customer satisfaction\n\nBest Practices:\n- Offer callback at appropriate wait time\n- Provide estimated callback time\n- Allow cancellation\n- Respect time zone\n- Confirm callback was completed",
+    "category": "AI Features",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632802"
+  },
+  {
+    "id": "sample_031",
+    "title": "Performance Dashboards Guide",
+    "url": "https://help.mypurecloud.com/articles/performance-dashboards/",
+    "content": "Build and customize real-time performance dashboards.\n\nDashboard Types:\n1. Queue Performance: Real-time queue metrics\n2. Agent Performance: Individual/team metrics\n3. Interaction Details: Transaction-level data\n4. WFM: Workforce metrics\n5. Custom: User-built dashboards\n\nCreating Custom Dashboard:\n1. Navigate to Performance > Dashboards\n2. Click \"Create Dashboard\"\n3. Name dashboard\n4. Add widgets\n5. Configure layout\n6. Save and share\n\nWidget Types:\n- Metric widgets: Single KPI display\n- Chart widgets: Trends over time\n- Table widgets: Tabular data\n- Alert widgets: Threshold notifications\n\nCommon Metrics:\nQueue Metrics:\n- Interactions waiting\n- Average wait time\n- Service level\n- Abandon rate\n- Agents available\n\nAgent Metrics:\n- Handle time\n- After call work\n- Utilization\n- Status time\n- Quality scores\n\nRefresh Rates:\n- Real-time: Every 3-5 seconds\n- Near real-time: Every 30 seconds\n- Periodic: User-defined interval\n\nSharing Dashboards:\n- Share with specific users\n- Share with roles\n- Make division-specific\n- Export to PDF/image\n\nBest Practices:\n- Include most critical metrics\n- Use color coding meaningfully\n- Set appropriate thresholds\n- Organize logically\n- Don't overcrowd\n\nWallboard Mode:\n- Full-screen display\n- Auto-rotate dashboards\n- Suitable for contact center displays\n- Customizable refresh rate",
+    "category": "Analytics",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632803"
+  },
+  {
+    "id": "sample_032",
+    "title": "Historical Reporting Guide",
+    "url": "https://help.mypurecloud.com/articles/historical-reports/",
+    "content": "Generate and schedule historical reports.\n\nReport Categories:\n1. Interaction Reports: Call/chat/email details\n2. Queue Reports: Performance by queue\n3. Agent Reports: Individual metrics\n4. Flow Reports: IVR/Architect analytics\n5. Quality Reports: Evaluation data\n6. WFM Reports: Workforce metrics\n\nCreating Reports:\n1. Navigate to Analytics > Reports\n2. Select report type\n3. Configure date range\n4. Apply filters\n5. Select columns\n6. Run or schedule\n\nCommon Report Types:\n- Agent Activity Summary\n- Queue Performance Summary\n- Interaction Detail\n- Wrap-up Code Summary\n- Transfer Report\n\nScheduling Reports:\n1. Configure report parameters\n2. Click \"Schedule\"\n3. Set frequency (daily/weekly/monthly)\n4. Choose delivery time\n5. Add email recipients\n6. Select export format\n\nExport Formats:\n- CSV: Data analysis\n- PDF: Presentation\n- Excel: Manipulation\n- API: Integration\n\nCustom Reports:\n- Build with report builder\n- Combine multiple data sources\n- Create calculated fields\n- Save templates\n- Share across organization\n\nData Retention:\n- Real-time: 30 days\n- Historical: Based on subscription\n- Exports: As long as stored\n- Recordings: Per retention policy\n\nBest Practices:\n- Schedule during off-peak\n- Use filters to limit data\n- Archive important reports\n- Document report definitions\n- Review regularly for accuracy",
+    "category": "Analytics",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632804"
+  },
+  {
+    "id": "sample_033",
+    "title": "Contact Center KPIs Guide",
+    "url": "https://help.mypurecloud.com/articles/contact-center-kpis/",
+    "content": "Key performance indicators for contact center success.\n\nService Level Metrics:\n- Service Level (SL): % answered within threshold\n- Average Speed of Answer (ASA): Mean wait time\n- Abandon Rate: % of callers who hang up\n- First Contact Resolution (FCR): % resolved first contact\n\nEfficiency Metrics:\n- Average Handle Time (AHT): Talk + Hold + ACW\n- Occupancy: % time handling contacts\n- Utilization: % time available/handling\n- Contacts per Hour: Productivity measure\n\nQuality Metrics:\n- Quality Score: Evaluation results\n- Customer Satisfaction (CSAT): Survey scores\n- Net Promoter Score (NPS): Loyalty indicator\n- Customer Effort Score (CES): Ease of resolution\n\nAgent Metrics:\n- Schedule Adherence: Following schedule\n- Attendance: Showing up as scheduled\n- Attrition Rate: Turnover\n- Training Compliance: Certifications current\n\nIndustry Benchmarks:\n- Service Level: 80% in 20 seconds\n- Abandon Rate: Under 5%\n- FCR: 70-75%\n- CSAT: 85%+\n- AHT: Varies by type\n\nSetting Targets:\n1. Understand current baseline\n2. Benchmark against industry\n3. Set realistic improvement goals\n4. Communicate to team\n5. Track progress regularly\n\nMetric Relationships:\n- Lower AHT may reduce quality\n- Higher SL may increase costs\n- FCR improvement reduces volume\n- Balance is critical\n\nReporting Cadence:\n- Real-time: SL, wait times, availability\n- Daily: AHT, handle volume, abandon\n- Weekly: Quality, adherence, trends\n- Monthly: CSAT, NPS, FCR",
+    "category": "Analytics",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632804"
+  },
+  {
+    "id": "sample_034",
+    "title": "Data Actions Configuration",
+    "url": "https://help.mypurecloud.com/articles/configure-data-actions/",
+    "content": "Create data actions to integrate with external systems.\n\nData Action Overview:\nData actions enable Genesys Cloud to communicate with external APIs, databases, and services during interactions.\n\nCreating a Data Action:\n1. Navigate to Admin > Integrations\n2. Select or create integration\n3. Click \"Add Data Action\"\n4. Configure request settings\n5. Define input/output contracts\n6. Test and publish\n\nConfiguration Components:\nRequest:\n- HTTP Method (GET, POST, PUT, DELETE)\n- URL endpoint\n- Headers\n- Authentication\n- Request body template\n\nInput Contract:\n- Define expected inputs\n- Set data types\n- Mark required fields\n- Add validation rules\n\nOutput Contract:\n- Define response mapping\n- Parse JSON/XML response\n- Extract needed fields\n- Handle arrays/objects\n\nUsing in Architect:\n1. Add \"Call Data Action\" action\n2. Select published data action\n3. Map input variables\n4. Handle success/failure paths\n5. Use output in flow\n\nError Handling:\n- Configure timeout (default 30s)\n- Handle HTTP errors\n- Parse error responses\n- Define fallback behavior\n- Log for debugging\n\nAuthentication Types:\n- None: Open endpoints\n- Basic: Username/password\n- OAuth 2.0: Token-based\n- API Key: Header or query\n- Custom: Advanced scenarios\n\nBest Practices:\n- Use meaningful names\n- Document thoroughly\n- Test extensively\n- Monitor performance\n- Implement retry logic",
+    "category": "Integrations",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632805"
+  },
+  {
+    "id": "sample_035",
+    "title": "Salesforce Integration Guide",
+    "url": "https://help.mypurecloud.com/articles/salesforce-integration/",
+    "content": "Integrate Genesys Cloud with Salesforce CRM.\n\nIntegration Overview:\nThe Genesys Cloud for Salesforce integration enables click-to-dial, screen pops, and activity logging within Salesforce.\n\nSetup Requirements:\n- Salesforce admin access\n- Genesys Cloud admin access\n- Connected app in Salesforce\n- Integration user credentials\n\nInstallation Steps:\n1. Install managed package from AppExchange\n2. Configure connected app\n3. Create integration in Genesys Cloud\n4. Configure OAuth settings\n5. Map user accounts\n6. Enable features\n\nFeatures:\n- Click-to-dial from Salesforce\n- Screen pop on incoming\n- Automatic activity logging\n- Call controls in Salesforce\n- Transfer with context\n\nScreen Pop Configuration:\n1. Navigate to integration settings\n2. Configure matching rules:\n   - Phone number\n   - Email address\n   - Account ID\n3. Set pop behavior (new tab, same tab)\n4. Configure no-match handling\n\nActivity Logging:\n- Automatic task creation\n- Call duration capture\n- Wrap-up code mapping\n- Custom field population\n- Recording links\n\nData Actions:\n- Query Salesforce records\n- Create/update records\n- Look up customer data\n- Log custom information\n\nTroubleshooting:\n- Verify OAuth tokens\n- Check user mapping\n- Review matching rules\n- Confirm permissions\n- Test in sandbox first",
+    "category": "Integrations",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632806"
+  },
+  {
+    "id": "sample_036",
+    "title": "API Authentication Guide",
+    "url": "https://help.mypurecloud.com/articles/api-authentication/",
+    "content": "Authenticate to Genesys Cloud Platform APIs.\n\nAuthentication Methods:\n\n1. OAuth 2.0 Client Credentials:\nBest for: Server-to-server integration\nSetup:\n- Create OAuth client in Admin > Integrations\n- Use client ID and secret\n- Request access token\n- Use token in API calls\n\n2. OAuth 2.0 Authorization Code:\nBest for: User-context applications\nFlow:\n- Redirect user to auth URL\n- User grants permission\n- Receive authorization code\n- Exchange for access token\n\n3. OAuth 2.0 Implicit:\nBest for: Single-page applications\nNote: Less secure, use with caution\n\nCreating OAuth Client:\n1. Navigate to Admin > Integrations > OAuth\n2. Click \"Add Client\"\n3. Enter name and description\n4. Select grant type\n5. Configure redirect URIs (if applicable)\n6. Assign roles/permissions\n7. Save and note credentials\n\nToken Management:\n- Access tokens expire (typically 24 hours)\n- Implement token refresh\n- Store tokens securely\n- Don't expose in client code\n\nAPI Regions:\n- Americas: api.mypurecloud.com\n- EMEA: api.mypurecloud.ie\n- Asia Pacific: api.mypurecloud.com.au\n- etc.\n\nRate Limiting:\n- 300 requests per minute default\n- 429 response when exceeded\n- Implement exponential backoff\n- Cache responses when possible\n\nSecurity Best Practices:\n- Rotate credentials regularly\n- Use minimum required permissions\n- Audit API access\n- Monitor for anomalies\n- Secure storage of secrets",
+    "category": "Integrations",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632806"
+  },
+  {
+    "id": "sample_037",
+    "title": "Security Best Practices",
+    "url": "https://help.mypurecloud.com/articles/security-best-practices/",
+    "content": "Implement security best practices for Genesys Cloud.\n\nUser Access Management:\n- Enable single sign-on (SSO)\n- Implement multi-factor authentication (MFA)\n- Use principle of least privilege\n- Review access regularly\n- Disable inactive accounts\n\nRole Configuration:\n- Use built-in roles when possible\n- Create custom roles minimally\n- Audit role assignments\n- Document permission rationale\n- Review quarterly\n\nData Protection:\n- Enable encryption at rest\n- Use TLS for data in transit\n- Mask sensitive data in logs\n- Configure data retention\n- Implement DLP policies\n\nRecording Security:\n- Enable recording encryption\n- Control access by role\n- Set retention policies\n- Audit recording access\n- Secure deletion\n\nNetwork Security:\n- Whitelist Genesys IPs\n- Configure firewall rules\n- Use VPN for remote\n- Monitor network traffic\n- Segment networks\n\nIntegration Security:\n- Use OAuth for APIs\n- Rotate credentials\n- Audit integration access\n- Monitor API usage\n- Secure webhooks\n\nCompliance Considerations:\n- PCI DSS for payments\n- HIPAA for healthcare\n- GDPR for EU data\n- SOC 2 compliance\n- Industry-specific requirements\n\nIncident Response:\n- Define escalation procedures\n- Document security contacts\n- Test response plans\n- Review after incidents\n- Maintain audit trails",
+    "category": "Security",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632807"
+  },
+  {
+    "id": "sample_038",
+    "title": "GDPR Compliance Guide",
+    "url": "https://help.mypurecloud.com/articles/gdpr-compliance/",
+    "content": "Ensure GDPR compliance in Genesys Cloud.\n\nGDPR Overview:\nThe General Data Protection Regulation governs how personal data of EU residents must be handled.\n\nData Subject Rights:\n1. Right to Access: Provide data upon request\n2. Right to Rectification: Correct inaccurate data\n3. Right to Erasure: Delete data when requested\n4. Right to Portability: Export data in usable format\n5. Right to Object: Stop processing\n\nGenesys Cloud GDPR Tools:\n- GDPR API for data requests\n- Bulk data export capability\n- Automated data retention\n- Consent management\n- Audit logging\n\nHandling Access Requests:\n1. Verify requestor identity\n2. Search for personal data\n3. Compile data export\n4. Provide within 30 days\n5. Document the request\n\nData Erasure Process:\n1. Verify deletion request\n2. Identify all data locations\n3. Execute deletion\n4. Confirm completion\n5. Document for compliance\n\nRecording Considerations:\n- Consent before recording\n- Announce recording\n- Allow opt-out\n- Retention limits\n- Secure deletion\n\nConsent Management:\n- Document consent obtained\n- Track consent changes\n- Enable consent withdrawal\n- Update preferences promptly\n\nData Processing Agreements:\n- Review with Genesys\n- Document subprocessors\n- Maintain records\n- Update as needed\n\nBest Practices:\n- Minimize data collection\n- Implement retention policies\n- Train staff regularly\n- Document procedures\n- Regular compliance audits",
+    "category": "Security",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632808"
+  },
+  {
+    "id": "sample_039",
+    "title": "PCI DSS Compliance",
+    "url": "https://help.mypurecloud.com/articles/pci-compliance/",
+    "content": "Maintain PCI DSS compliance for payment processing.\n\nPCI DSS Overview:\nPayment Card Industry Data Security Standard requirements for handling credit card data.\n\nGenesys Cloud PCI Features:\n- Secure pause for recordings\n- DTMF masking\n- Secure IVR payments\n- Encrypted storage\n- Access controls\n\nSecure Pause:\nDuring card data entry:\n1. Agent initiates secure pause\n2. Recording stops\n3. Customer enters card data\n4. Agent confirms (without seeing data)\n5. Recording resumes\n\nDTMF Masking:\n- Mask card numbers in transcripts\n- Hide CVV completely\n- Mask in recordings\n- Protect in logs\n\nIVR Payment Processing:\nBest Practices:\n- Use certified payment gateway\n- Never store full card numbers\n- Tokenize payment data\n- Encrypt in transit\n- Audit access\n\nAgent Training:\n- Never write down card data\n- Clear screens after calls\n- Report suspicious activity\n- Follow clean desk policy\n- Annual PCI training\n\nNetwork Segmentation:\n- Isolate payment systems\n- Restrict access\n- Monitor traffic\n- Regular testing\n\nCompliance Validation:\n- Self-assessment questionnaire\n- External audits (if required)\n- Penetration testing\n- Vulnerability scanning\n- Documentation\n\nRecording Guidelines:\n- Enable secure pause\n- Verify pause activation\n- Test regularly\n- Audit recordings\n- Delete per retention policy",
+    "category": "Security",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632808"
+  },
+  {
+    "id": "sample_040",
+    "title": "Workforce Forecasting Fundamentals",
+    "url": "https://help.mypurecloud.com/articles/wfm-forecasting/",
+    "content": "Create accurate forecasts to optimize staffing levels.\n\nForecasting Overview:\nWorkforce forecasting predicts future interaction volumes and required staffing based on historical patterns and known events.\n\nData Requirements:\n- Minimum 4 weeks of historical data\n- Recommended: 12+ months for seasonal patterns\n- Include all interaction channels\n\nCreating a Forecast:\n1. Navigate to Workforce Management > Forecasting\n2. Select date range\n3. Choose forecasting method\n4. Review and adjust as needed\n5. Publish forecast\n\nForecasting Methods:\n- Historical Average: Simple, uses past averages\n- Weighted Average: Emphasizes recent data\n- Best Fit: Algorithm selects optimal method\n- Manual: User-defined values\n\nAdjusting for Events:\n- Add known events (holidays, promotions)\n- Apply percentage adjustments\n- Account for one-time occurrences\n- Factor in business changes\n\nForecast Accuracy Metrics:\n- MAPE (Mean Absolute Percentage Error)\n- Target: Under 5% for mature operations\n- Review accuracy weekly\n\nImproving Forecast Accuracy:\n- Clean historical data\n- Document unusual events\n- Track marketing campaigns\n- Note external factors\n- Compare forecast vs actual regularly\n\nChannel Considerations:\n- Voice: Higher staffing ratio needed\n- Chat: Agents can handle multiple\n- Email: Longer handling, flexible timing",
+    "category": "Workforce Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632809"
+  },
+  {
+    "id": "sample_041",
+    "title": "Agent Scheduling Guide",
+    "url": "https://help.mypurecloud.com/articles/wfm-scheduling/",
+    "content": "Generate optimized agent schedules that meet service level goals.\n\nScheduling Process:\n1. Forecast provides required staffing\n2. System generates optimal schedules\n3. Planner reviews and adjusts\n4. Schedules published to agents\n5. Agents can view in their desktop\n\nCreating Schedules:\n1. Go to Workforce Management > Scheduling\n2. Select date range\n3. Choose scheduling run type\n4. Configure constraints\n5. Generate schedule\n6. Review and publish\n\nSchedule Constraints:\n- Minimum/maximum shift length\n- Required breaks and lunches\n- Start time preferences\n- Skill requirements\n- Contracted hours\n\nShift Types:\n- Fixed: Same times daily\n- Rotating: Varies by week\n- Flexible: Within defined windows\n- Split: Multiple segments\n\nAgent Preferences:\n- Shift bidding: Agents rank preferences\n- Time-off requests: Approved/denied\n- Availability: Agent-defined constraints\n\nSchedule Optimization:\nSystem balances:\n- Service level requirements\n- Labor cost minimization\n- Agent preferences\n- Skill coverage\n- Regulatory compliance\n\nPublishing Schedules:\n- Lead time: 2-4 weeks recommended\n- Notification: Automatic to agents\n- Changes: Track and communicate\n- Swaps: Agent-initiated trades",
+    "category": "Workforce Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632810"
+  },
+  {
+    "id": "sample_042",
+    "title": "Real-Time Adherence Monitoring",
+    "url": "https://help.mypurecloud.com/articles/wfm-adherence/",
+    "content": "Monitor and manage agent schedule adherence in real-time.\n\nWhat is Adherence?\nAdherence measures whether agents are doing what they're scheduled to do, when they're scheduled to do it.\n\nAdherence vs Conformance:\n- Adherence: Correct activity at correct time\n- Conformance: Total time in scheduled activities (regardless of timing)\n\nViewing Real-Time Adherence:\n1. Go to Workforce Management > Adherence\n2. View agent status dashboard\n3. See scheduled vs actual activity\n4. Identify out-of-adherence agents\n\nAdherence Statuses:\n- In Adherence: Agent activity matches schedule\n- Out of Adherence: Mismatch between scheduled and actual\n- Unscheduled: Agent working without schedule\n\nCommon Out-of-Adherence Causes:\n- Extended breaks\n- Late returns from lunch\n- Unplanned off-phone time\n- System issues\n- Meetings running long\n\nException Management:\n1. Identify adherence exception\n2. Document reason\n3. Approve/deny exception\n4. Adjust schedule if recurring\n\nAdherence Alerts:\nConfigure alerts for:\n- Individual agent thresholds\n- Team-level thresholds\n- Specific activity types\n- Duration thresholds\n\nReporting:\n- Daily adherence summary\n- Trend analysis\n- Exception report\n- Agent comparison\n- Cost impact analysis",
+    "category": "Workforce Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632810"
+  },
+  {
+    "id": "sample_043",
+    "title": "Intraday Management",
+    "url": "https://help.mypurecloud.com/articles/wfm-intraday/",
+    "content": "Manage staffing in real-time to meet changing conditions.\n\nIntraday Management Overview:\nIntraday management compares actual conditions to forecast and schedule, enabling real-time adjustments to maintain service levels.\n\nIntraday Dashboard:\n- Forecast vs Actual volume\n- Scheduled vs Available agents\n- Service level tracking\n- Queue performance\n\nWhen to Adjust:\n- Volume higher than forecast: Add staff\n- Volume lower than forecast: Release staff\n- Unexpected absences: Backfill\n- Service level dropping: Take action\n\nAdjustment Options:\n1. Overtime (OT): Extend scheduled agents\n2. Voluntary Time Off (VTO): Release excess staff\n3. Skill changes: Reassign agents\n4. Break adjustments: Stagger timing\n5. Off-phone time: Postpone or advance\n\nReforecast Process:\n1. Observe actual trend\n2. Calculate variance from forecast\n3. Project remainder of day\n4. Adjust staffing accordingly\n\nCommunication:\n- Broadcast messages to agents\n- Real-time schedule updates\n- Supervisor notifications\n- Automated VTO offers\n\nBest Practices:\n- Check intraday status every 30-60 minutes\n- Have standby agents for peak periods\n- Pre-approve OT limits\n- Document adjustment reasons\n- Review intraday decisions weekly\n\nMetrics to Monitor:\n- Forecast accuracy (intraday)\n- Adjustment frequency\n- Service level recovery time\n- OT/VTO utilization",
+    "category": "Workforce Management",
+    "product": "Genesys Cloud CX",
+    "scraped_at": "2025-12-01T21:32:03.632811"
+  }
+]

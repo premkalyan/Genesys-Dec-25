@@ -1,0 +1,532 @@
+@import "tailwindcss";
+
+/* Genesys Cloud Color Palette */
+:root {
+  --gcx-orange: #FF4F1F;
+  --gcx-orange-dark: #E6461C;
+  --gcx-orange-light: #FF7A54;
+  --gcx-dark: #1A1A2E;
+  --gcx-darker: #16162A;
+  --gcx-darkest: #0F0F1A;
+  --gcx-sidebar: #1E1E3F;
+  --gcx-panel: #252542;
+  --gcx-border: #3D3D5C;
+  --gcx-text: #E8E8F0;
+  --gcx-text-muted: #9999B3;
+  --gcx-success: #00D084;
+  --gcx-warning: #FFB020;
+  --gcx-error: #FF4D4D;
+  --gcx-info: #4DA6FF;
+
+  --background: #0F0F1A;
+  --foreground: #E8E8F0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Light mode overrides */
+.theme-light {
+  --background: #F5F5F7;
+  --foreground: #1A1A2E;
+  --gcx-panel: #FFFFFF;
+  --gcx-border: #E0E0E8;
+  --gcx-text: #1A1A2E;
+  --gcx-text-muted: #6B6B80;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Genesys Cloud Header Style */
+.gcx-header {
+  background: linear-gradient(180deg, #1E1E3F 0%, #1A1A2E 100%);
+  border-bottom: 1px solid var(--gcx-border);
+}
+
+.gcx-logo {
+  background: linear-gradient(135deg, var(--gcx-orange) 0%, var(--gcx-orange-dark) 100%);
+}
+
+/* Genesys Cloud Sidebar Style */
+.gcx-sidebar {
+  background: var(--gcx-sidebar);
+  border-right: 1px solid var(--gcx-border);
+}
+
+.gcx-sidebar-item {
+  padding: 12px 16px;
+  color: var(--gcx-text-muted);
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.gcx-sidebar-item:hover {
+  background: rgba(255, 79, 31, 0.1);
+  color: var(--gcx-text);
+}
+
+.gcx-sidebar-item.active {
+  background: rgba(255, 79, 31, 0.15);
+  color: var(--gcx-orange);
+  border-left-color: var(--gcx-orange);
+}
+
+/* Genesys Cloud Panel Style */
+.gcx-panel {
+  background: var(--gcx-panel);
+  border: 1px solid var(--gcx-border);
+  border-radius: 8px;
+}
+
+.gcx-panel-header {
+  background: linear-gradient(180deg, rgba(255, 79, 31, 0.1) 0%, transparent 100%);
+  border-bottom: 1px solid var(--gcx-border);
+  padding: 12px 16px;
+}
+
+/* Genesys Cloud Buttons */
+.gcx-btn-primary {
+  background: linear-gradient(135deg, var(--gcx-orange) 0%, var(--gcx-orange-dark) 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.gcx-btn-primary:hover {
+  background: linear-gradient(135deg, var(--gcx-orange-light) 0%, var(--gcx-orange) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 79, 31, 0.3);
+}
+
+.gcx-btn-secondary {
+  background: var(--gcx-panel);
+  color: var(--gcx-text);
+  border: 1px solid var(--gcx-border);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.gcx-btn-secondary:hover {
+  background: rgba(255, 79, 31, 0.1);
+  border-color: var(--gcx-orange);
+}
+
+/* Status Badges */
+.gcx-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gcx-badge-success {
+  background: rgba(0, 208, 132, 0.15);
+  color: var(--gcx-success);
+  border: 1px solid rgba(0, 208, 132, 0.3);
+}
+
+.gcx-badge-warning {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--gcx-warning);
+  border: 1px solid rgba(255, 176, 32, 0.3);
+}
+
+.gcx-badge-error {
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--gcx-error);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+}
+
+/* Interaction Card */
+.gcx-interaction-card {
+  background: var(--gcx-panel);
+  border: 1px solid var(--gcx-border);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.gcx-interaction-card:hover {
+  border-color: var(--gcx-orange);
+  box-shadow: 0 4px 12px rgba(255, 79, 31, 0.1);
+}
+
+/* Custom animations for Agent Assist Demo */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(255, 79, 31, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 79, 31, 0.6);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-orange {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fadeSlideIn {
+  animation: fadeSlideIn 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 79, 31, 0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-pulse-orange {
+  animation: pulse-orange 2s ease-in-out infinite;
+}
+
+/* Smooth scrollbar for panels - Genesys style */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--gcx-border);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--gcx-orange);
+}
+
+/* Genesys Cloud Input Style */
+.gcx-input {
+  background: var(--gcx-darker);
+  border: 1px solid var(--gcx-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--gcx-text);
+  transition: all 0.2s ease;
+}
+
+.gcx-input:focus {
+  outline: none;
+  border-color: var(--gcx-orange);
+  box-shadow: 0 0 0 3px rgba(255, 79, 31, 0.1);
+}
+
+/* Genesys Cloud Select Style */
+.gcx-select {
+  background: var(--gcx-darker);
+  border: 1px solid var(--gcx-border);
+  border-radius: 6px;
+  padding: 8px 32px 8px 12px;
+  color: var(--gcx-text);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239999B3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.gcx-select:focus {
+  outline: none;
+  border-color: var(--gcx-orange);
+}
+
+/* Tooltip */
+.gcx-tooltip {
+  background: var(--gcx-darkest);
+  border: 1px solid var(--gcx-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--gcx-text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Customer bubble - blue tint */
+.gcx-customer-bubble {
+  background: linear-gradient(135deg, #1E3A5F 0%, #162D4A 100%);
+  border: 1px solid #2A4D6E;
+}
+
+/* Agent bubble - Genesys orange tint */
+.gcx-agent-bubble {
+  background: linear-gradient(135deg, rgba(255, 79, 31, 0.15) 0%, rgba(255, 79, 31, 0.08) 100%);
+  border: 1px solid rgba(255, 79, 31, 0.3);
+}
+
+/* Confetti Animation */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+.confetti-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  animation: confetti-fall 3s ease-out forwards, confetti-shake 0.5s ease-in-out infinite;
+}
+
+.confetti:nth-child(odd) {
+  border-radius: 50%;
+}
+
+.confetti:nth-child(even) {
+  border-radius: 2px;
+}
+
+/* Voice Indicator Animation */
+@keyframes voice-bar {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: 16px;
+  }
+}
+
+@keyframes voice-bar-delayed {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+@keyframes voice-bar-slow {
+  0%, 100% {
+    height: 3px;
+  }
+  50% {
+    height: 12px;
+  }
+}
+
+.voice-indicator {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.voice-bar {
+  width: 3px;
+  background: var(--gcx-orange);
+  border-radius: 2px;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.voice-bar:nth-child(1) {
+  animation: voice-bar 0.8s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.voice-bar:nth-child(2) {
+  animation: voice-bar-delayed 0.6s ease-in-out infinite;
+  animation-delay: 0.1s;
+}
+
+.voice-bar:nth-child(3) {
+  animation: voice-bar 0.7s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.voice-bar:nth-child(4) {
+  animation: voice-bar-slow 0.9s ease-in-out infinite;
+  animation-delay: 0.15s;
+}
+
+.voice-bar:nth-child(5) {
+  animation: voice-bar-delayed 0.65s ease-in-out infinite;
+  animation-delay: 0.25s;
+}
+
+.voice-indicator-idle .voice-bar {
+  animation: none;
+  height: 4px;
+  opacity: 0.5;
+}
+
+/* Customer voice (blue) */
+.voice-indicator-customer .voice-bar {
+  background: #4DA6FF;
+}
+
+/* Agent voice (orange) */
+.voice-indicator-agent .voice-bar {
+  background: var(--gcx-orange);
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .gcx-header {
+    padding: 0.5rem 1rem;
+  }
+
+  .gcx-header h1 {
+    font-size: 0.875rem;
+  }
+
+  .gcx-btn-primary,
+  .gcx-btn-secondary {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  .gcx-select {
+    padding: 6px 28px 6px 10px;
+    font-size: 0.75rem;
+    max-width: 150px;
+  }
+
+  .gcx-panel {
+    border-radius: 6px;
+  }
+
+  .gcx-panel-header {
+    padding: 8px 12px;
+  }
+
+  /* Hide some header elements on mobile */
+  .mobile-hide {
+    display: none !important;
+  }
+}
+
+/* Tablet Responsive Styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .gcx-header {
+    padding: 0.75rem 1.5rem;
+  }
+
+  .tablet-hide {
+    display: none !important;
+  }
+}
+
+/* Touch-friendly targets for mobile */
+@media (pointer: coarse) {
+  .gcx-btn-primary,
+  .gcx-btn-secondary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .gcx-select {
+    min-height: 44px;
+  }
+}
+
+/* Responsive header flex wrap */
+.header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 1280px) {
+  .header-controls {
+    gap: 0.375rem;
+  }
+}
+
+/* Responsive panel heights */
+@media (max-width: 1279px) {
+  .panel-responsive {
+    min-height: 300px;
+    max-height: 500px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .panel-responsive {
+    height: 100%;
+  }
+}

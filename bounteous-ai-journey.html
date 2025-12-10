@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounteous AI Maturity Journey</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 40px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            margin-bottom: 20px;
+        }
+
+        .logo img {
+            height: 40px;
+            width: auto;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        /* Journey Container */
+        .journey {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+            margin: 60px 0;
+            gap: 24px;
+        }
+
+        /* Connecting Line */
+        .journey::before {
+            content: '';
+            position: absolute;
+            top: 60px;
+            left: 80px;
+            right: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981, #f97316);
+            border-radius: 2px;
+            z-index: 0;
+        }
+
+        /* Stage Card */
+        .stage {
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stage-icon {
+            width: 120px;
+            height: 120px;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 48px;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .stage-icon::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 27px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0));
+            z-index: -1;
+        }
+
+        .stage:nth-child(1) .stage-icon {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .stage:nth-child(2) .stage-icon {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+        }
+
+        .stage:nth-child(3) .stage-icon {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .stage:nth-child(4) .stage-icon {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+        }
+
+        .stage-name {
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .stage-platform {
+            font-size: 14px;
+            color: #64748b;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .stage-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+
+        .stage-bullets {
+            list-style: none;
+            margin-bottom: 16px;
+            flex: 1;
+        }
+
+        .stage-bullets li {
+            font-size: 13px;
+            color: #cbd5e1;
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .stage-bullets li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 12px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .stage:nth-child(1) .stage-bullets li::before { background: #3b82f6; }
+        .stage:nth-child(2) .stage-bullets li::before { background: #8b5cf6; }
+        .stage:nth-child(3) .stage-bullets li::before { background: #10b981; }
+        .stage:nth-child(4) .stage-bullets li::before { background: #f97316; }
+
+        .stage-metric {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin-top: auto;
+        }
+
+        .stage-metric-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .stage:nth-child(1) .stage-metric-value { color: #60a5fa; }
+        .stage:nth-child(2) .stage-metric-value { color: #a78bfa; }
+        .stage:nth-child(3) .stage-metric-value { color: #34d399; }
+        .stage:nth-child(4) .stage-metric-value { color: #fb923c; }
+
+        .stage-metric-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .flow-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            font-size: 16px;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .flow-text span {
+            font-weight: 600;
+        }
+
+        .flow-text .arrow {
+            color: #475569;
+        }
+
+        .tagline {
+            font-size: 22px;
+            font-weight: 300;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .tagline strong {
+            color: #f97316;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <svg width="220" height="45" viewBox="0 0 220 45">
+                    <text x="0" y="35" font-family="Inter, sans-serif" font-size="36" font-weight="700" fill="#4338ca">bounteous</text>
+                </svg>
+            </div>
+            <h1 class="title">Enterprise AI, Engineered</h1>
+            <p class="subtitle">From Enablement to Customer Delight</p>
+        </div>
+
+        <!-- Journey Stages -->
+        <div class="journey">
+            <!-- Enable + Adopt -->
+            <div class="stage">
+                <div class="stage-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                    </svg>
+                </div>
+                <div class="stage-name">ENABLE + ADOPT</div>
+                <div class="stage-platform">Prism Platform</div>
+                <div class="stage-card">
+                    <ul class="stage-bullets">
+                        <li>AI awareness by persona & level</li>
+                        <li>Organization-wide adoption tracking</li>
+                        <li>Training programs & tool governance</li>
+                    </ul>
+                    <div class="stage-metric">
+                        <div class="stage-metric-value">People First</div>
+                        <div class="stage-metric-label">Foundation</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Build -->
+            <div class="stage">
+                <div class="stage-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="10" rx="2"/>
+                        <circle cx="12" cy="5" r="2"/>
+                        <path d="M12 7v4"/>
+                        <line x1="8" y1="16" x2="8" y2="16"/>
+                        <line x1="16" y1="16" x2="16" y2="16"/>
+                    </svg>
+                </div>
+                <div class="stage-name">BUILD</div>
+                <div class="stage-platform">NEXUS Platform</div>
+                <div class="stage-card">
+                    <ul class="stage-bullets">
+                        <li>4-Agent: Monitor → Verify → Execute → Learn</li>
+                        <li>Self-healing cross-system resolution</li>
+                        <li>Continuous learning & improvement</li>
+                    </ul>
+                    <div class="stage-metric">
+                        <div class="stage-metric-value">95% Automation</div>
+                        <div class="stage-metric-label">15x Faster Resolution</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assure -->
+            <div class="stage">
+                <div class="stage-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <polyline points="9 12 11 14 15 10"/>
+                    </svg>
+                </div>
+                <div class="stage-name">ASSURE</div>
+                <div class="stage-platform">QIP Platform</div>
+                <div class="stage-card">
+                    <ul class="stage-bullets">
+                        <li>Continuous compliance verification</li>
+                        <li>Hybrid: Deterministic rules + AI checks</li>
+                        <li>Auto evidence: Git, Jira, Confluence, ServiceNow, Splunk</li>
+                    </ul>
+                    <div class="stage-metric">
+                        <div class="stage-metric-value">Multi-Framework</div>
+                        <div class="stage-metric-label">CMMI · SOC 2 · ISO 27001</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delight -->
+            <div class="stage">
+                <div class="stage-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                </div>
+                <div class="stage-name">DELIGHT</div>
+                <div class="stage-platform">Genesys AI Demos</div>
+                <div class="stage-card">
+                    <ul class="stage-bullets">
+                        <li>Fine-tuned SLM on domain data</li>
+                        <li>Zero-repetition bot-to-human handoff</li>
+                        <li>Real-time sentiment + historical context</li>
+                    </ul>
+                    <div class="stage-metric">
+                        <div class="stage-metric-value">CX Intelligence</div>
+                        <div class="stage-metric-label">Customer Experience</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="flow-text">
+                <span>Enable + Adopt</span>
+                <span class="arrow">→</span>
+                <span>Build</span>
+                <span class="arrow">→</span>
+                <span>Assure</span>
+                <span class="arrow">→</span>
+                <span>Delight</span>
+            </div>
+            <p class="tagline">"Bounteous doesn't just use AI — <strong>we've built the full stack.</strong>"</p>
+        </div>
+    </div>
+</body>
+</html>

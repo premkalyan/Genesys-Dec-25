@@ -1,0 +1,126 @@
+Here’s a clear, current picture of what Genesys does and how you can tailor Bounteous’ AI story to resonate with them.
+
+⸻
+
+1. What Genesys does (in plain terms)
+
+Genesys is a Customer Experience (CX) and Contact Center technology company.
+They provide platforms that let enterprises run and optimize customer service and sales interactions across voice, chat, email, social, messaging, and more—plus workforce tools for the agents who handle those interactions. They position this as “AI-Powered Experience Orchestration.”  ￼
+
+Key markets they serve: large/enterprise contact centers in financial services, healthcare, retail, travel/hospitality, telecom, and public sector, usually with complex omnichannel needs.
+
+⸻
+
+2. Core products / platform stack
+
+Flagship: Genesys Cloud CX
+
+Their main product is Genesys Cloud CX, a cloud-native Contact Center as a Service (CCaaS) platform. It’s their strategic focus going forward and the center of most innovation.  ￼
+
+Genesys Cloud typically bundles:
+	•	Omnichannel routing & interaction management (voice + digital channels).
+	•	Agent desktop & engagement tools.
+	•	Customer journey management / orchestration across touchpoints.  ￼
+	•	Workforce Engagement Management (WEM): quality management, call recording, performance, workforce management/scheduling, coaching, gamification.  ￼
+	•	Analytics & reporting for CX and operations.
+
+AI portfolio inside Genesys Cloud
+
+Genesys is heavily leaning into embedded AI:
+	•	Virtual Agents / Bots for self-service.
+	•	Agent Copilots to assist humans in real time.
+	•	Conversation summaries, sentiment/topic detection, and “empathy detection”.
+	•	Genesys Cloud AI Studio for low/no-code building of AI agents and conversational experiences.  ￼
+
+Legacy / non-cloud suites
+
+They still support older enterprise stacks (e.g., Engage on-prem, PureConnect historically), but publicly they’ve said they’re “all in” on Genesys Cloud as the long-term platform.  ￼
+
+⸻
+
+3. Core business model
+
+Subscription CCaaS model, largely per-seat / per-agent, with add-ons.
+Genesys Cloud is sold as recurring SaaS licenses, with tiered packages and optional WEM/AI add-ons that increase ARPU. Their growth and financial story is annual recurring revenue (ARR) from cloud subscriptions.  ￼
+
+They also monetize:
+	•	Professional services & partner implementations.
+	•	Marketplace integrations and usage-based components (telephony minutes, AI features, etc., depending on contract).
+
+In short: land on Genesys Cloud CX, expand with AI + WEM + orchestration.
+
+⸻
+
+4. What they’ll care about when they visit Bounteous
+
+Genesys is already an AI-forward CX platform. So they won’t be looking for “AI is cool.”
+They’ll be looking for how Bounteous accelerates outcomes on top of/with Genesys:
+	1.	Faster time-to-value for GenAI + automation.
+	2.	Journey-level orchestration (not bot demos in isolation).
+	3.	Enterprise-grade governance, security, compliance, especially around customer data and PII.
+	4.	Measurable CX and agent productivity impact. (They talk about productivity, adherence, NRR/ARR—so bring metrics).  ￼
+	5.	Integration reality: tying Genesys Cloud into CRM, CDP, data lakes, analytics, and existing workflows.
+
+⸻
+
+5. Suggestions: what to show from an “AI excellence” POV (tailored to Genesys)
+
+Think of your deck as: “We make Genesys AI real in the messy enterprise.”
+
+A. Show CX use cases that extend Genesys AI
+
+Genesys already has copilots, bots, summaries. Don’t re-pitch those. Instead show where Bounteous takes it further:
+	•	Domain-tuned virtual agents
+Not generic bots—agents grounded in a client’s policies, products, and tone, with safe retrieval and escalation to Genesys routing.
+	•	Next-best-action & personalization across journeys
+Use customer data + ML/GenAI to decide what should happen next, then push that into Genesys orchestration/routing.
+	•	After-call work automation beyond summaries
+Auto-categorization, dispositioning, CRM updates, refunds/returns initiation, case creation with full audit trail.
+	•	Quality & coaching augmentation
+Use conversation analytics + GenAI to score interactions, detect coaching moments, generate targeted micro-learning—then feed into Genesys WEM.  ￼
+
+B. Prove your platform + integration chops
+
+Genesys lives in an ecosystem. Show 2–3 reference architectures:
+	•	Genesys Cloud + CRM (Salesforce/Dynamics) + data platform (Snowflake/Databricks/BigQuery)
+	•	Event-driven customer journey orchestration
+	•	LLM layer with guardrails (PII redaction, safe RAG, model routing, eval harness)
+
+Make it clear you can:
+	•	integrate via APIs / webhooks / event streams,
+	•	operate in regulated environments,
+	•	handle latency + reliability constraints for live contact centers.
+
+C. Lead with governance and trust
+
+Genesys markets “security/compliance/quick time-to-value” for AI. Match them with a crisp, opinionated governance story:  ￼
+	•	Model risk management (bias, drift, hallucination mitigation).
+	•	Human-in-the-loop patterns for CX.
+	•	PII handling + redaction in transcripts.
+	•	Evaluation dashboards (accuracy, containment, CSAT impact, agent efficiency, cost-to-serve).
+
+D. Bring hard numbers and a maturity path
+
+Genesys is ARR/NRR-driven. They’ll respond to ROI language.
+
+Show:
+	•	Benchmarks from prior CX AI work (containment %, AHT reduction, uplift in FCR/CSAT, agent ramp time).
+	•	A phased roadmap:
+Phase 1: Assist agents → Phase 2: Automate routine intents → Phase 3: Orchestrate journeys → Phase 4: Predict & transform.
+
+E. Co-innovation angle
+
+They’re a Leader in CCaaS and pushing “experience orchestration.”  ￼
+Offer a view of how Bounteous can help them (and mutual clients) experiment:
+	•	Industry accelerators (banking service flows, healthcare appointment + benefits journeys, retail order management).
+	•	Rapid prototyping for new AI Studio experiences.  ￼
+	•	Joint GTM or pilot factory for key verticals.
+
+⸻
+
+6. A simple meeting narrative you can use
+
+“Genesys already provides the world-class CX AI platform.
+Bounteous helps enterprises activate it: integrating data, designing journeys, tuning AI to the domain, governing it safely, and proving ROI—fast.”
+
+If you want, tell me the industry focus for the visit (e.g., healthcare vs BFSI) and whether they’re coming as platform + alliance or a specific client opportunity. I’ll draft a tighter, 6–8 slide “Genesys-ready” AI play with the right demos and proof points.
