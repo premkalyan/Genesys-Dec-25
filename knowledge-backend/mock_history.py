@@ -189,10 +189,10 @@ CUSTOMER_PERSONAS = {
     },
     'recovering_churned': {
         'description': 'Previously churned customer who returned, rebuilding trust',
-        'base_sentiment': 0.05,
-        'variance': 0.45,
-        'trend': 'improving',
-        'interaction_frequency': 'low'
+        'base_sentiment': 0.10,  # Starting slightly positive
+        'variance': 0.40,
+        'trend': 'improving',  # Will show upward trajectory
+        'interaction_frequency': 'low'  # ~1 per month = 3 for 90 days
     }
 }
 
@@ -203,7 +203,7 @@ DEMO_CUSTOMERS = {
         'name': 'Sarah Johnson',
         'email': 's.johnson@email.com',
         'tier': 'Platinum',
-        'persona': 'frustrated_at_risk',
+        'persona': 'recovering_churned',  # Shows improving trend for demo
         'account_age': '4 years'
     },
     'CUST-67890': {
@@ -252,19 +252,22 @@ def _generate_sentiment_score(
 ) -> float:
     """Generate a sentiment score with trend consideration"""
 
-    # Apply trend modifier
+    # Apply trend modifier - stronger effect for clearer demo visualization
     trend_modifier = 0.0
 
     if trend == 'improving':
-        trend_modifier = progress * 0.4
+        # Start negative, end positive - clear upward trajectory
+        trend_modifier = -0.3 + (progress * 0.7)  # -0.3 at start, +0.4 at end
     elif trend == 'declining':
-        trend_modifier = -progress * 0.4
+        # Start positive, end negative - clear downward trajectory
+        trend_modifier = 0.3 - (progress * 0.7)  # +0.3 at start, -0.4 at end
     elif trend == 'volatile':
-        trend_modifier = rng.uniform(-0.25, 0.25)
+        trend_modifier = rng.uniform(-0.3, 0.3)
     # 'stable' has no trend modifier
 
-    # Generate score with variance
-    score = base + trend_modifier + rng.uniform(-variance, variance)
+    # Generate score with variance (reduced for clearer trends)
+    actual_variance = variance * 0.6  # Reduce noise for clearer demo
+    score = base + trend_modifier + rng.uniform(-actual_variance, actual_variance)
 
     # Clamp to valid range
     return max(-1.0, min(1.0, score))

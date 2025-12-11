@@ -19,11 +19,11 @@ interface SentimentTimelineProps {
 
 // Channel icons
 const CHANNEL_ICONS: Record<SentimentChannel, string> = {
-  call: '\uD83D\uDCDE',    // phone
-  chat: '\uD83D\uDCAC',    // speech bubble
-  email: '\u2709\uFE0F',   // envelope
-  survey: '\uD83D\uDCCB', // clipboard
-  social: '\uD83D\uDC65', // people
+  call: '📞',
+  chat: '💬',
+  email: '✉️',
+  survey: '📋',
+  social: '👥',
 };
 
 const CHANNEL_COLORS: Record<SentimentChannel, string> = {
@@ -34,11 +34,25 @@ const CHANNEL_COLORS: Record<SentimentChannel, string> = {
   social: '#EC4899',  // pink
 };
 
+const CHANNEL_NAMES: Record<SentimentChannel, string> = {
+  call: 'Phone Call',
+  chat: 'Live Chat',
+  email: 'Email',
+  survey: 'Survey',
+  social: 'Social Media',
+};
+
 // Get sentiment color
 function getSentimentColor(score: number): string {
   if (score >= 0.15) return '#10B981'; // green
   if (score <= -0.15) return '#EF4444'; // red
   return '#6B7280'; // gray
+}
+
+function getSentimentBg(score: number): string {
+  if (score >= 0.15) return 'bg-green-500/20 border-green-500/30';
+  if (score <= -0.15) return 'bg-red-500/20 border-red-500/30';
+  return 'bg-gray-500/20 border-gray-500/30';
 }
 
 // Format date for display
@@ -50,12 +64,24 @@ function formatDate(isoString: string): string {
   });
 }
 
+function formatFullDate(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 // Trend indicator component
 function TrendIndicator({ trend }: { trend: SentimentTrend }) {
   const config = {
-    improving: { icon: '\u2191', color: '#10B981', label: 'Improving' },
-    stable: { icon: '\u2194', color: '#6B7280', label: 'Stable' },
-    declining: { icon: '\u2193', color: '#EF4444', label: 'Declining' },
+    improving: { icon: '↑', color: '#10B981', label: 'Improving' },
+    stable: { icon: '↔', color: '#6B7280', label: 'Stable' },
+    declining: { icon: '↓', color: '#EF4444', label: 'Declining' },
   };
   const { icon, color, label } = config[trend];
 
@@ -78,14 +104,24 @@ export default function SentimentTimeline({
   compact = false,
 }: SentimentTimelineProps) {
   const [hoveredPoint, setHoveredPoint] = useState<HistoricalInteraction | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<HistoricalInteraction | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  // Chart dimensions
-  const width = compact ? 280 : 500;
-  const height = compact ? 120 : 180;
-  const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+  // Chart dimensions - larger when expanded
+  const width = isExpanded ? 800 : compact ? 280 : 500;
+  const height = isExpanded ? 300 : compact ? 120 : 180;
+  const padding = { top: 25, right: 25, bottom: 35, left: 45 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
+
+  // Calculate date range based on selectedDays (not data range)
+  const dateRange = useMemo(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - selectedDays);
+    return { start: startDate, end: endDate };
+  }, [selectedDays]);
 
   // Process data points for the chart
   const dataPoints = useMemo(() => {
@@ -95,24 +131,18 @@ export default function SentimentTimeline({
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-    const minTime = new Date(sorted[0].timestamp).getTime();
-    const maxTime = new Date(sorted[sorted.length - 1].timestamp).getTime();
+    const minTime = dateRange.start.getTime();
+    const maxTime = dateRange.end.getTime();
     const timeRange = maxTime - minTime || 1;
 
     return sorted.map((interaction) => {
       const time = new Date(interaction.timestamp).getTime();
       const x = padding.left + ((time - minTime) / timeRange) * chartWidth;
-      // Score is -1 to 1, map to chart height (inverted because SVG y increases downward)
-      const y =
-        padding.top + ((1 - interaction.sentiment_score) / 2) * chartHeight;
+      const y = padding.top + ((1 - interaction.sentiment_score) / 2) * chartHeight;
 
-      return {
-        ...interaction,
-        x,
-        y,
-      };
+      return { ...interaction, x, y };
     });
-  }, [interactions, chartWidth, chartHeight, padding.left, padding.top]);
+  }, [interactions, chartWidth, chartHeight, padding.left, padding.top, dateRange]);
 
   // Generate SVG path for the line
   const linePath = useMemo(() => {
@@ -139,10 +169,15 @@ export default function SentimentTimeline({
       const rect = svg.getBoundingClientRect();
       setTooltipPosition({
         x: e.clientX - rect.left,
-        y: e.clientY - rect.top - 60,
+        y: e.clientY - rect.top - 80,
       });
     }
     setHoveredPoint(point);
+  };
+
+  // Handle click to select point
+  const handlePointClick = (point: HistoricalInteraction) => {
+    setSelectedPoint(selectedPoint?.id === point.id ? null : point);
   };
 
   if (interactions.length === 0) {
@@ -153,8 +188,8 @@ export default function SentimentTimeline({
     );
   }
 
-  return (
-    <div className={`bg-gray-800 rounded-lg ${compact ? 'p-3' : 'p-4'}`}>
+  const chartContent = (
+    <div className={`bg-gray-800 rounded-lg ${compact ? 'p-3' : 'p-4'} ${isExpanded ? 'fixed inset-4 z-50 overflow-auto' : ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
@@ -162,26 +197,43 @@ export default function SentimentTimeline({
             {customerName ? `${customerName}'s Sentiment History` : 'Sentiment History'}
           </h3>
           <p className="text-xs text-gray-400">
-            {summary.total_interactions} interactions over {summary.period_days} days
+            {summary.total_interactions} interactions over {selectedDays} days
           </p>
         </div>
-        {onRangeChange && (
-          <div className="flex gap-1">
-            {([30, 60, 90] as const).map((days) => (
-              <button
-                key={days}
-                onClick={() => onRangeChange(days)}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  selectedDays === days
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {days}d
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {onRangeChange && (
+            <div className="flex gap-1">
+              {([30, 60, 90] as const).map((days) => (
+                <button
+                  key={days}
+                  onClick={() => onRangeChange(days)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    selectedDays === days
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {days}d
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            title={isExpanded ? 'Collapse' : 'Expand'}
+          >
+            {isExpanded ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -269,7 +321,7 @@ export default function SentimentTimeline({
                   strokeDasharray="3,3"
                 />
                 <text
-                  x={padding.left - 5}
+                  x={padding.left - 8}
                   y={y}
                   textAnchor="end"
                   dominantBaseline="middle"
@@ -281,6 +333,16 @@ export default function SentimentTimeline({
               </g>
             );
           })}
+
+          {/* Zero line (highlighted) */}
+          <line
+            x1={padding.left}
+            y1={padding.top + chartHeight / 2}
+            x2={width - padding.right}
+            y2={padding.top + chartHeight / 2}
+            stroke="#4B5563"
+            strokeWidth="1"
+          />
 
           {/* X-axis line */}
           <line
@@ -308,122 +370,195 @@ export default function SentimentTimeline({
             strokeWidth="2"
           />
 
-          {/* Data points */}
+          {/* Data points - Channel colored */}
           {dataPoints.map((point) => (
-            <g key={point.id}>
-              {/* Outer circle for channel color */}
+            <g key={point.id} className="cursor-pointer">
+              {/* Outer ring - Channel color */}
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={6}
+                r={isExpanded ? 10 : 7}
                 fill={CHANNEL_COLORS[point.channel]}
-                opacity={0.3}
-              />
-              {/* Inner circle for sentiment */}
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={4}
-                fill={getSentimentColor(point.sentiment_score)}
-                stroke="#1F2937"
-                strokeWidth="1"
-                className="cursor-pointer transition-all hover:r-6"
+                opacity={selectedPoint?.id === point.id ? 1 : 0.8}
+                stroke={selectedPoint?.id === point.id ? '#fff' : 'none'}
+                strokeWidth={2}
+                onClick={() => handlePointClick(point)}
                 onMouseEnter={(e) => handleMouseMove(e, point)}
                 onMouseLeave={() => setHoveredPoint(null)}
+              />
+              {/* Inner dot - Sentiment indicator */}
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r={isExpanded ? 4 : 3}
+                fill={getSentimentColor(point.sentiment_score)}
+                pointerEvents="none"
               />
             </g>
           ))}
 
           {/* X-axis date labels */}
-          {dataPoints.length > 0 && (
-            <>
-              <text
-                x={padding.left}
-                y={height - 10}
-                textAnchor="start"
-                fill="#9CA3AF"
-                fontSize="10"
-              >
-                {formatDate(dataPoints[0].timestamp)}
-              </text>
-              <text
-                x={width - padding.right}
-                y={height - 10}
-                textAnchor="end"
-                fill="#9CA3AF"
-                fontSize="10"
-              >
-                {formatDate(dataPoints[dataPoints.length - 1].timestamp)}
-              </text>
-            </>
-          )}
+          <text
+            x={padding.left}
+            y={height - 10}
+            textAnchor="start"
+            fill="#9CA3AF"
+            fontSize="10"
+          >
+            {formatDate(dateRange.start.toISOString())}
+          </text>
+          <text
+            x={width - padding.right}
+            y={height - 10}
+            textAnchor="end"
+            fill="#9CA3AF"
+            fontSize="10"
+          >
+            {formatDate(dateRange.end.toISOString())}
+          </text>
         </svg>
 
-        {/* Tooltip */}
-        {hoveredPoint && (
+        {/* Hover Tooltip */}
+        {hoveredPoint && !selectedPoint && (
           <div
-            className="absolute bg-gray-900 rounded-lg p-3 shadow-xl border border-gray-700 z-10 pointer-events-none"
+            className="absolute bg-gray-900 rounded-lg p-3 shadow-xl border border-gray-600 z-20 pointer-events-none min-w-48"
             style={{
-              left: tooltipPosition.x,
+              left: Math.min(tooltipPosition.x, width - 200),
               top: tooltipPosition.y,
               transform: 'translateX(-50%)',
             }}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span>{CHANNEL_ICONS[hoveredPoint.channel]}</span>
-              <span className="text-sm font-medium text-white capitalize">
-                {hoveredPoint.channel}
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: CHANNEL_COLORS[hoveredPoint.channel] }}
+              />
+              <span className="text-sm font-medium text-white">
+                {CHANNEL_NAMES[hoveredPoint.channel]}
               </span>
               <span
-                className="px-1.5 py-0.5 rounded text-xs font-medium"
+                className="px-1.5 py-0.5 rounded text-xs font-medium ml-auto"
                 style={{
                   backgroundColor: `${getSentimentColor(hoveredPoint.sentiment_score)}20`,
                   color: getSentimentColor(hoveredPoint.sentiment_score),
                 }}
               >
-                {hoveredPoint.sentiment_label}
+                {hoveredPoint.sentiment_score >= 0 ? '+' : ''}{hoveredPoint.sentiment_score.toFixed(2)}
               </span>
             </div>
             <div className="text-xs text-gray-400 mb-1">
-              {new Date(hoveredPoint.timestamp).toLocaleString()}
+              {formatFullDate(hoveredPoint.timestamp)}
             </div>
             <div className="text-xs text-gray-300">{hoveredPoint.summary}</div>
-            {hoveredPoint.resolution && (
-              <div className="text-xs text-gray-400 mt-1">
-                Resolution:{' '}
-                <span
-                  className={
-                    hoveredPoint.resolution === 'resolved'
-                      ? 'text-green-400'
-                      : hoveredPoint.resolution === 'escalated'
-                      ? 'text-red-400'
-                      : 'text-yellow-400'
-                  }
-                >
-                  {hoveredPoint.resolution}
-                </span>
-              </div>
-            )}
+            <div className="text-xs text-blue-400 mt-2">Click for details</div>
           </div>
         )}
       </div>
 
-      {/* Channel Legend */}
-      {!compact && (
-        <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-700">
-          {Object.entries(summary.channel_breakdown).map(([channel, count]) => (
-            <div key={channel} className="flex items-center gap-1">
+      {/* Channel Legend - Clickable */}
+      <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-700">
+        {Object.entries(summary.channel_breakdown).map(([channel, count]) => (
+          <button
+            key={channel}
+            className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-700/50 transition-colors"
+            onClick={() => {
+              // Filter to show only this channel's interactions
+              const channelInteraction = interactions.find(i => i.channel === channel);
+              if (channelInteraction) setSelectedPoint(channelInteraction);
+            }}
+          >
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: CHANNEL_COLORS[channel as SentimentChannel] }}
+            />
+            <span className="text-xs text-gray-300">
+              {CHANNEL_ICONS[channel as SentimentChannel]} {CHANNEL_NAMES[channel as SentimentChannel]}: {count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Selected Interaction Detail Panel */}
+      {selectedPoint && (
+        <div className={`mt-4 p-4 rounded-lg border ${getSentimentBg(selectedPoint.sentiment_score)}`}>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
               <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: CHANNEL_COLORS[channel as SentimentChannel] }}
+                className="w-4 h-4 rounded-full"
+                style={{ backgroundColor: CHANNEL_COLORS[selectedPoint.channel] }}
               />
-              <span className="text-xs text-gray-400 capitalize">
-                {channel}: {count}
+              <span className="font-medium text-white">
+                {CHANNEL_ICONS[selectedPoint.channel]} {CHANNEL_NAMES[selectedPoint.channel]}
               </span>
             </div>
-          ))}
+            <button
+              onClick={() => setSelectedPoint(null)}
+              className="text-gray-400 hover:text-white"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div>
+              <div className="text-xs text-gray-400">Date & Time</div>
+              <div className="text-sm text-white">{formatFullDate(selectedPoint.timestamp)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Sentiment Score</div>
+              <div className="text-sm font-bold" style={{ color: getSentimentColor(selectedPoint.sentiment_score) }}>
+                {selectedPoint.sentiment_score >= 0 ? '+' : ''}{selectedPoint.sentiment_score.toFixed(3)}
+                <span className="ml-2 font-normal text-gray-400">({selectedPoint.sentiment_label})</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Resolution</div>
+              <div className={`text-sm ${
+                selectedPoint.resolution === 'resolved' ? 'text-green-400' :
+                selectedPoint.resolution === 'escalated' ? 'text-red-400' : 'text-yellow-400'
+              }`}>
+                {selectedPoint.resolution || 'Pending'}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400">Agent</div>
+              <div className="text-sm text-white">{selectedPoint.agent_id || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs text-gray-400 mb-1">Interaction Summary</div>
+            <div className="text-sm text-gray-200 bg-gray-800/50 rounded p-2">
+              {selectedPoint.summary}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-gray-600/50">
+            <div className="text-xs text-gray-400 mb-1">Why this sentiment?</div>
+            <div className="text-xs text-gray-300">
+              {selectedPoint.sentiment_score >= 0.15
+                ? 'Positive language indicators detected: satisfaction, appreciation, or resolved issue.'
+                : selectedPoint.sentiment_score <= -0.15
+                ? 'Negative language indicators detected: frustration, complaint, or unresolved issue.'
+                : 'Neutral language indicators: informational inquiry or routine interaction.'}
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
+
+  // Render with overlay if expanded
+  if (isExpanded) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setIsExpanded(false)} />
+        {chartContent}
+      </>
+    );
+  }
+
+  return chartContent;
 }
