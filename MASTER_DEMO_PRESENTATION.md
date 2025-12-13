@@ -4,9 +4,10 @@
 
 | Demo | URL | Purpose |
 |------|-----|---------|
+| **AI Journey Infographic** | `bounteous-ai-journey.html` | Executive single-slide: "Enterprise AI, Engineered" |
 | **POC-1: AI Layer Demo** | http://localhost:3334 | Customer-facing virtual agent with PII protection |
 | **POC-2: Agent Assist Demo** | http://localhost:3335 | Real-time agent desktop with AI assistance (Genesys Cloud UI) |
-| **Backend API** | http://localhost:3336 | Shared RAG/Knowledge backend |
+| **Backend API** | http://localhost:3336 | Shared RAG/Knowledge + Sentiment Analysis backend |
 
 ### One-Click Start
 ```bash
@@ -422,10 +423,10 @@ Three-panel agent desktop with real-time AI assistance, styled to match **Genesy
 │  └─────────┘ └───────────┘  │   │  └──────────┘ └─────────┘ └──────┘ │
 │  ┌─────────┐ ┌───────────┐  │   │                                     │
 │  │ Handoff │ │  Metrics  │  │   │  Features:                          │
-│  └─────────┘ └───────────┘  │   │  - Sentiment Analysis               │
-└─────────────────────────────┘   │  - Knowledge Cards                  │
-              │                   │  - Quick Actions                    │
-              │                   │  - Escalation Alerts                │
+│  └─────────┘ └───────────┘  │   │  - Sentiment Analysis (Dual Provider)│
+└─────────────────────────────┘   │  - Sentiment History Timeline        │
+              │                   │  - Knowledge Cards                   │
+              │                   │  - Quick Actions & Escalation        │
               ▼                   └─────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    Shared Backend: http://localhost:3336                 │
@@ -434,8 +435,18 @@ Three-panel agent desktop with real-time AI assistance, styled to match **Genesy
 │  │    FastAPI      │    │    ChromaDB     │    │ sentence-transformers│ │
 │  │    Server       │◄──►│   Vector DB     │◄──►│  (all-MiniLM-L6-v2) │ │
 │  └─────────────────┘    └─────────────────┘    └─────────────────────┘ │
-│                                │                                        │
-│                    75 Knowledge Articles Indexed                        │
+│          │                     │                                        │
+│          ▼                     │                                        │
+│  ┌─────────────────────────────┴───────────────────────────────────┐   │
+│  │              Sentiment Analysis Module                           │   │
+│  │  ┌──────────────────┐         ┌──────────────────────────────┐  │   │
+│  │  │  VADER (~3ms)    │         │  Transformer (~50-100ms)     │  │   │
+│  │  │  Rule-based      │         │  distilbert-sst-2-english    │  │   │
+│  │  │  Fast, reliable  │         │  Accurate, nuanced           │  │   │
+│  │  └──────────────────┘         └──────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│                    75 Knowledge Articles + Mock History Data            │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -502,6 +513,12 @@ npm run dev -- -p 3335
 
 | Feature | Description |
 |---------|-------------|
+| **Bounteous AI Journey Infographic** | `bounteous-ai-journey.html` - "Enterprise AI, Engineered" single-slide overview |
+| **Sentiment History Timeline** | Historical customer sentiment visualization with channel-colored dots |
+| **Dual-Provider Sentiment** | VADER (fast ~3ms) vs Transformer (accurate ~50ms) with toggle |
+| **Clickable Interaction Details** | Click any dot to see full interaction info + "why this sentiment" |
+| **Fullscreen Chart Mode** | Expand button for larger sentiment timeline view |
+| **Improving Trend Demo** | Demo customer shows upward trajectory (negative→positive) |
 | **Intelligent Chat** | 8-factor weighted routing engine with real-time analysis visualization |
 | **Genesys Cloud UI Skin** | POC-2 styled to match actual Genesys Cloud CX agent desktop |
 | **2 New Scenarios** | Billing Dispute & New Feature Inquiry added (now 6 total) |
@@ -510,10 +527,89 @@ npm run dev -- -p 3335
 | **75 KB Articles** | Expanded knowledge base covering all Genesys CX topics |
 | **Export Session** | Download transcript + analytics as JSON for follow-up |
 | **Keyboard Shortcuts** | Space (pause), ←/→ (scenarios), E (export) |
-| **Confetti Celebration** | Fun animation when scenarios resolve positively |
 | **Comparison View** | `/compare` page showing Without AI vs With AI metrics |
-| **Voice Indicator** | Animated audio visualizer showing customer/agent speaking |
-| **Mobile Responsive** | Tablet-friendly layout with responsive header and panels |
+
+---
+
+## New: Bounteous AI Journey Infographic
+
+**File:** `bounteous-ai-journey.html`
+
+**Purpose:** Single-slide overview of Bounteous AI capabilities for executive presentations.
+
+**Title:** "Enterprise AI, Engineered"
+**Subtitle:** "From Enablement to Customer Delight"
+
+**4 Stages:**
+| Stage | Platform | Focus |
+|-------|----------|-------|
+| **ENABLE + ADOPT** | Prism | AI awareness, adoption tracking, training |
+| **BUILD** | NEXUS | 4-agent architecture, 95% automation |
+| **ASSURE** | QIP | Continuous compliance, multi-framework |
+| **DELIGHT** | Genesys Demos | Fine-tuned SLM, sentiment, handoff |
+
+**Demo Steps:**
+1. Open `bounteous-ai-journey.html` in browser
+2. Walk through the 4 stages left to right
+3. Key message: "Bounteous doesn't just use AI — we've built the full stack"
+
+---
+
+## New: Sentiment History Timeline (POC-2)
+
+**Location:** Agent Assist panel → Sentiment History section
+
+**Features:**
+| Feature | Description |
+|---------|-------------|
+| **Channel-Colored Dots** | Blue=Call, Purple=Chat, Amber=Email, Green=Survey, Pink=Social |
+| **Clickable Details** | Click any dot to see interaction summary, agent, resolution |
+| **Fullscreen Mode** | Expand button for larger chart view |
+| **Provider Toggle** | Switch between VADER (fast) and Transformer (accurate) |
+| **Date Range** | 30/60/90 day selector |
+| **"Why This Sentiment"** | Explanation of sentiment classification in detail panel |
+
+**Demo Data (Sarah Johnson - CUST-12345):**
+- ~3-4 interactions over 90 days (realistic frequency)
+- **Improving trend** - starts negative, ends positive
+- Mix of channels and sentiments
+
+**Talk Track:**
+> "We don't just analyze the current conversation - we show the agent the customer's full sentiment history across all channels. Watch how Sarah started frustrated 3 months ago but her sentiment has been improving. The agent can click any dot to see exactly what happened in that interaction."
+
+**Demo Steps:**
+1. Run any scenario in POC-2
+2. Scroll to Sentiment History section in AI Assist panel
+3. Point out the improving trend line (green, upward)
+4. Click a dot to show interaction details
+5. Toggle provider (VADER vs Transformer) to show speed difference
+6. Click expand button to show fullscreen view
+
+---
+
+## New: Dual-Provider Sentiment Analysis
+
+**Providers:**
+| Provider | Speed | Best For |
+|----------|-------|----------|
+| **VADER** | ~3ms | Real-time UI updates, high throughput |
+| **Transformer** | ~50-100ms | Accuracy-critical decisions, nuanced text |
+
+**API Endpoints:**
+```bash
+# Analyze sentiment
+POST /api/sentiment/analyze
+{"text": "I'm frustrated", "provider": "vader"}
+
+# Get customer history
+GET /api/sentiment/history/CUST-12345?days=90
+
+# Reset history cache (for demo refresh)
+POST /api/sentiment/reset-history
+```
+
+**Talk Track:**
+> "We offer two sentiment engines. VADER is rule-based and incredibly fast - 3 milliseconds. The transformer model is more accurate but takes 50-100ms. For real-time UI, we use VADER. For critical decisions like escalation triggers, we can use the transformer."
 
 ---
 
@@ -575,4 +671,4 @@ To create animated GIFs for presentations, use these recommended tools:
 ---
 
 *Last Updated: December 2024*
-*Version: Consolidated Demo Guide v2.2*
+*Version: Consolidated Demo Guide v2.3*
