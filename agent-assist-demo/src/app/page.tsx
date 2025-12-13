@@ -38,6 +38,7 @@ export default function AgentAssistPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5x, 1x, 1.5x, 2x
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAutoPlayMessageCount = useRef<number>(0); // Track to prevent duplicate auto-sends
 
   // C5: Custom message injection state
   const [showMessageInjector, setShowMessageInjector] = useState(false);
@@ -392,11 +393,23 @@ export default function AgentAssistPage() {
 
   // C4: Auto-play effect - automatically send agent response after customer message
   useEffect(() => {
-    if (isAutoPlay && !isPaused && isRunning && !isLoading && aiData.suggestions.length > 0) {
+    // Only auto-send if we haven't already sent for this message count
+    const currentMessageCount = messages.length;
+    const shouldAutoSend = isAutoPlay &&
+                           !isPaused &&
+                           isRunning &&
+                           !isLoading &&
+                           aiData.suggestions.length > 0 &&
+                           currentMessageCount > lastAutoPlayMessageCount.current;
+
+    if (shouldAutoSend) {
       // Clear any existing timeout
       if (autoPlayTimeoutRef.current) {
         clearTimeout(autoPlayTimeoutRef.current);
       }
+
+      // Mark this message count as processed
+      lastAutoPlayMessageCount.current = currentMessageCount;
 
       // Wait a bit then auto-send agent response
       const delay = applySpeedMultiplier(2000); // 2 seconds at 1x speed
@@ -412,7 +425,7 @@ export default function AgentAssistPage() {
         clearTimeout(autoPlayTimeoutRef.current);
       }
     };
-  }, [isAutoPlay, isPaused, isRunning, isLoading, aiData.suggestions, applySpeedMultiplier, handleAgentSend]);
+  }, [isAutoPlay, isPaused, isRunning, isLoading, messages.length, aiData.suggestions, applySpeedMultiplier, handleAgentSend]);
 
   // Reset demo
   const resetDemo = () => {
@@ -429,6 +442,7 @@ export default function AgentAssistPage() {
     // C4: Reset auto-play state
     setIsAutoPlay(false);
     setIsPaused(false);
+    lastAutoPlayMessageCount.current = 0; // Reset auto-play counter
     setAiData({
       suggestions: ['Hello! How can I help you today?'],
       knowledgeCards: [],
