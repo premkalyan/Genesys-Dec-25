@@ -237,9 +237,14 @@ DEMO_CUSTOMERS = {
 }
 
 
+# Version number - increment to force regeneration of all mock data
+MOCK_DATA_VERSION = "v2"
+
 def _get_seeded_random(seed_string: str) -> random.Random:
     """Create a seeded random generator for consistent results"""
-    seed = int(hashlib.md5(seed_string.encode()).hexdigest()[:8], 16)
+    # Include version in seed so data regenerates when we update the algorithm
+    versioned_seed = f"{MOCK_DATA_VERSION}_{seed_string}"
+    seed = int(hashlib.md5(versioned_seed.encode()).hexdigest()[:8], 16)
     return random.Random(seed)
 
 
@@ -286,22 +291,18 @@ def _get_interaction_count(rng: random.Random, frequency: str, days: int) -> int
     """Determine number of interactions based on frequency and time period.
 
     Realistic frequency: customers typically contact support ~once a month.
+    For demo purposes: 3-5 interactions for 90 days looks realistic.
     """
-    # Interactions per month - realistic customer contact frequency
-    base_per_month = {
-        'low': (0.8, 1.2),    # About 1 per month (3 for 90 days)
-        'medium': (1.0, 1.5),  # 1-1.5 per month (4-5 for 90 days)
-        'high': (1.5, 2.0)     # 1.5-2 per month (5-6 for 90 days)
-    }
+    # Direct count ranges for different periods - simple and predictable
+    if days <= 30:
+        counts = {'low': (1, 2), 'medium': (2, 2), 'high': (2, 3)}
+    elif days <= 60:
+        counts = {'low': (2, 3), 'medium': (2, 3), 'high': (3, 4)}
+    else:  # 90 days
+        counts = {'low': (3, 4), 'medium': (3, 5), 'high': (4, 5)}
 
-    min_rate, max_rate = base_per_month.get(frequency, (0.8, 1.2))
-    months = days / 30
-
-    min_count = int(min_rate * months)
-    max_count = int(max_rate * months)
-
-    # Ensure at least 2 interactions for meaningful trend analysis
-    return rng.randint(max(2, min_count), max(3, max_count))
+    min_count, max_count = counts.get(frequency, (3, 4))
+    return rng.randint(min_count, max_count)
 
 
 def generate_customer_history(
