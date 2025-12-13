@@ -324,48 +324,17 @@ function generateResponse(text: string, model: 'SLM' | 'LLM'): string {
     : SAMPLE_RESPONSES['default_llm'] + 'This query required advanced reasoning capabilities, so it was routed to our LLM for comprehensive analysis while ensuring any sensitive data was protected.';
 }
 
-// Conversation starters organized by category
-const CONVERSATION_STARTERS = [
-  {
-    category: 'Simple Queries (→ SLM)',
-    icon: '⚡',
-    color: 'green',
-    queries: [
-      'What are the wire transfer fees?',
-      'What is the overdraft policy?',
-      'What are current loan rates?',
-      'How do I open a savings account?',
-    ],
-  },
-  {
-    category: 'PII Queries (→ SLM Local)',
-    icon: '🔒',
-    color: 'yellow',
-    queries: [
-      'My SSN is 123-45-6789, what is my account status?',
-      'Check balance for account #12345678',
-      'My email is john@example.com, update my contact info',
-    ],
-  },
-  {
-    category: 'Complex Analysis (→ LLM)',
-    icon: '🧠',
-    color: 'orange',
-    queries: [
-      'Compare the trade-offs between fixed and variable rate mortgages for a first-time buyer',
-      'Analyze different retirement savings strategies considering tax implications',
-      'Explain why CD rates are higher than savings account rates',
-    ],
-  },
-  {
-    category: 'Complex + PII (→ LLM + Scrub)',
-    icon: '🛡️',
-    color: 'red',
-    queries: [
-      'My account #12345678 - analyze my spending patterns and suggest a budget',
-      'SSN 123-45-6789 - compare my loan options based on my credit profile',
-    ],
-  },
+// Sample queries for the demo - routing decision revealed after selection
+const SAMPLE_QUERIES = [
+  'What are the wire transfer fees?',
+  'What is the overdraft policy?',
+  'What are current loan rates?',
+  'How do I open a savings account?',
+  'My SSN is 123-45-6789, what is my account status?',
+  'Check balance for account #12345678',
+  'Compare the trade-offs between fixed and variable rate mortgages for a first-time buyer',
+  'Analyze different retirement savings strategies considering tax implications',
+  'My account #12345678 - analyze my spending patterns and suggest a budget',
 ];
 
 export default function SmartChatPage() {
@@ -612,7 +581,7 @@ export default function SmartChatPage() {
           {/* Analysis Panel */}
           {showAnalysis && (
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-              {/* Conversation Starters */}
+              {/* Sample Queries */}
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
                 <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -620,35 +589,21 @@ export default function SmartChatPage() {
                   </svg>
                   Try These Queries
                 </h3>
-                <div className="space-y-3">
-                  {CONVERSATION_STARTERS.map((category) => (
-                    <div key={category.category}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span>{category.icon}</span>
-                        <span className={`text-xs font-medium ${
-                          category.color === 'green' ? 'text-green-400' :
-                          category.color === 'yellow' ? 'text-yellow-400' :
-                          category.color === 'orange' ? 'text-orange-400' :
-                          'text-red-400'
-                        }`}>
-                          {category.category}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {category.queries.map((query, i) => (
-                          <button
-                            key={i}
-                            onClick={() => handleStarterClick(query)}
-                            className="w-full text-left px-3 py-2 text-xs rounded-lg bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors truncate"
-                            title={query}
-                          >
-                            {query}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                <div className="space-y-1.5">
+                  {SAMPLE_QUERIES.map((query, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleStarterClick(query)}
+                      className="w-full text-left px-3 py-2.5 text-sm rounded-lg bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+                      title={query}
+                    >
+                      {query}
+                    </button>
                   ))}
                 </div>
+                <p className="text-xs text-slate-500 mt-3 text-center">
+                  Click a query to see how routing is determined
+                </p>
               </div>
 
               {/* Routing Analysis */}
