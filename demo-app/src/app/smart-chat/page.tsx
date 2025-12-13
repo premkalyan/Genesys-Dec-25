@@ -289,39 +289,87 @@ function performRoutingAnalysis(text: string, conversationLength: number): Routi
   };
 }
 
-// Sample responses
+// Sample responses - complete, helpful answers without mentioning model type
 const SAMPLE_RESPONSES: Record<string, string> = {
-  'wire transfer': 'Wire transfer fees at our bank:\n\n• Domestic wire (outgoing): $25\n• Domestic wire (incoming): $15\n• International wire (outgoing): $45\n• International wire (incoming): $15\n\nPlatinum members receive 2 free domestic wires per month.\n\n📚 Source: Banking Fee Schedule 2024',
-  'balance': 'I can help you check your account balance. For security, please:\n\n1. Log into our mobile app, or\n2. Visit any branch with valid ID, or\n3. Call our secure line at 1-800-XXX-XXXX\n\nI cannot access specific account information through this channel to protect your privacy.',
-  'overdraft': 'Our overdraft protection options:\n\n• **Standard Overdraft**: $35 per occurrence, max 3/day\n• **Overdraft Line of Credit**: 18.99% APR, no per-transaction fee\n• **Savings Link**: Free transfers from linked savings\n\nTo enroll, visit any branch or call 1-800-XXX-XXXX.\n\n📚 Source: Overdraft Protection Policy',
-  'loan': 'Current loan rates (as of today):\n\n• **Personal Loan**: 8.99% - 15.99% APR\n• **Auto Loan**: 5.49% - 9.99% APR\n• **Home Equity**: 7.25% - 8.75% APR\n• **Mortgage**: Starting at 6.875% APR\n\nRates vary based on credit score and term length.\n\n📚 Source: Current Rate Sheet',
-  'compare': 'Let me provide a comprehensive analysis...\n\nWhen comparing these options, I consider multiple factors:\n\n**Cost Analysis:**\n• Upfront fees and ongoing costs\n• Hidden charges and penalties\n\n**Risk Assessment:**\n• Market volatility exposure\n• Liquidity constraints\n\n**Strategic Fit:**\n• Alignment with your goals\n• Timeline considerations\n\nThis type of complex analytical query benefits from advanced reasoning to weigh trade-offs specific to your situation.',
-  'default_slm': 'Based on our banking policies, I can help you with that.\n\n',
-  'default_llm': 'Let me provide a detailed analysis of your query.\n\n',
+  'wire transfer': 'Wire transfer fees at our bank:\n\n• **Domestic wire (outgoing):** $25\n• **Domestic wire (incoming):** $15\n• **International wire (outgoing):** $45\n• **International wire (incoming):** $15\n\nPlatinum members receive 2 free domestic wires per month. Processing times: domestic wires complete same-day if submitted before 4 PM ET.\n\n📚 Source: Banking Fee Schedule 2024',
+
+  'balance': 'For your security, I can help you check your account balance through these secure channels:\n\n1. **Mobile App** - Instant access with Face ID/fingerprint\n2. **Online Banking** - Log in at bank.example.com\n3. **Phone Banking** - Call 1-800-555-BANK (24/7)\n4. **ATM** - Use your debit card at any network ATM\n5. **Branch Visit** - Bring valid photo ID\n\nI\'m unable to display specific account details in this chat to protect your privacy.',
+
+  'overdraft': 'Our overdraft protection options:\n\n• **Standard Overdraft:** $35 per occurrence, max 3 per day\n• **Overdraft Line of Credit:** 18.99% APR, no per-transaction fee\n• **Savings Link:** Free automatic transfers from linked savings\n\nTo enroll or change your overdraft settings, visit any branch or call 1-800-555-BANK.\n\n📚 Source: Overdraft Protection Policy',
+
+  'loan': 'Current loan rates (as of today):\n\n• **Personal Loan:** 8.99% - 15.99% APR\n• **Auto Loan (new):** 5.49% - 7.99% APR\n• **Auto Loan (used):** 6.49% - 9.99% APR\n• **Home Equity:** 7.25% - 8.75% APR\n• **Mortgage (30-yr fixed):** Starting at 6.875% APR\n\nRates vary based on credit score, loan term, and down payment. Get a personalized quote online or schedule an appointment with a loan officer.\n\n📚 Source: Current Rate Sheet',
+
+  'savings': 'Opening a savings account is easy! Here\'s how:\n\n**Online (5 minutes):**\n1. Visit bank.example.com/open-account\n2. Choose your savings account type\n3. Provide ID and personal information\n4. Fund with initial deposit ($25 minimum)\n\n**In Branch:**\nBring a valid photo ID and proof of address. No appointment needed.\n\n**Account Types:**\n• **Basic Savings:** 0.50% APY, no monthly fee\n• **High-Yield Savings:** 4.25% APY, $500 minimum\n• **Money Market:** 4.50% APY, limited check-writing\n\n📚 Source: Deposit Account Guide',
+
+  'account_status_pii': 'I\'ve detected sensitive personal information in your message. For your security:\n\n⚠️ **Please don\'t share SSN or full account numbers in chat.**\n\nTo check your account status securely:\n1. Log into online banking or the mobile app\n2. Call 1-800-555-BANK with your account info\n3. Visit any branch with photo ID\n\nYour privacy and security are our top priorities.',
+
+  'spending_analysis': 'I\'d be happy to help analyze your spending patterns! Here\'s what I can do:\n\n**Spending Insights Available:**\n• Monthly category breakdown (dining, shopping, utilities, etc.)\n• Spending trends over 3, 6, or 12 months\n• Comparison to previous periods\n• Personalized saving opportunities\n\n**Budget Recommendations:**\n• 50/30/20 rule analysis (needs/wants/savings)\n• Bill payment optimization\n• Subscription tracking\n\nTo access your personalized analysis, please log into the mobile app and tap "Insights" → "Spending Analysis."\n\n📊 Your data is analyzed locally and never shared.',
+
+  'mortgage_compare': '**Fixed vs. Variable Rate Mortgages for First-Time Buyers**\n\n**Fixed Rate (30-year at 6.875%):**\n✓ Predictable monthly payments\n✓ Protection from rate increases\n✓ Easier budgeting for first-time buyers\n✗ Higher initial rate than variable\n✗ Less benefit if rates drop\n\n**Variable/ARM (5/1 at 5.75%):**\n✓ Lower initial payments\n✓ Good if you plan to move in 5-7 years\n✓ Potential savings if rates stay low\n✗ Payment uncertainty after fixed period\n✗ Risk of significant increases\n\n**Recommendation for First-Time Buyers:**\nMost first-time buyers prefer fixed rates for stability. Consider variable only if you\'re confident you\'ll refinance or sell within 5-7 years.\n\n📚 Source: Mortgage Planning Guide',
+
+  'retirement_strategies': '**Retirement Savings Strategies & Tax Implications**\n\n**Tax-Advantaged Accounts:**\n\n| Account | 2024 Limit | Tax Benefit |\n|---------|-----------|-------------|\n| 401(k) | $23,000 | Pre-tax contributions |\n| Roth IRA | $7,000 | Tax-free withdrawals |\n| Traditional IRA | $7,000 | Tax-deductible contributions |\n| HSA | $4,150 | Triple tax advantage |\n\n**Strategy Considerations:**\n\n1. **Maximize employer match** - It\'s free money (typically 3-6%)\n2. **Roth vs Traditional** - Higher income now? Traditional. Expect higher taxes later? Roth.\n3. **Diversify tax treatment** - Mix of pre-tax and Roth provides flexibility\n4. **Catch-up contributions** - Age 50+: extra $7,500 to 401(k)\n\n**Key Insight:** A blended approach often works best, providing both current tax savings and future flexibility.\n\n📚 Based on 2024 IRS guidelines',
 };
 
 function generateResponse(text: string, model: 'SLM' | 'LLM'): string {
   const lowerText = text.toLowerCase();
 
+  // Wire transfer fees
   if (lowerText.includes('wire transfer') || lowerText.includes('wire fee')) {
     return SAMPLE_RESPONSES['wire transfer'];
   }
-  if (lowerText.includes('balance')) {
+
+  // Savings account
+  if (lowerText.includes('savings account') || lowerText.includes('open a savings') || lowerText.includes('open an account')) {
+    return SAMPLE_RESPONSES['savings'];
+  }
+
+  // Balance check (with potential PII)
+  if (lowerText.includes('balance') && (lowerText.includes('account') || lowerText.includes('#'))) {
     return SAMPLE_RESPONSES['balance'];
   }
+
+  // Overdraft policy
   if (lowerText.includes('overdraft')) {
     return SAMPLE_RESPONSES['overdraft'];
   }
+
+  // Loan rates
   if (lowerText.includes('loan') || lowerText.includes('interest rate')) {
     return SAMPLE_RESPONSES['loan'];
   }
-  if (lowerText.includes('compare') || lowerText.includes('analyze') || lowerText.includes('trade-off')) {
-    return SAMPLE_RESPONSES['compare'];
+
+  // SSN or account status with PII
+  if (lowerText.includes('ssn') || lowerText.includes('social security') ||
+      (lowerText.includes('account status') && /\d{4,}/.test(text))) {
+    return SAMPLE_RESPONSES['account_status_pii'];
   }
 
-  return model === 'SLM'
-    ? SAMPLE_RESPONSES['default_slm'] + 'This query was handled by our domain-tuned SLM for fast, accurate responses within our banking knowledge base.\n\n📚 Source: Banking Policy Documentation'
-    : SAMPLE_RESPONSES['default_llm'] + 'This query required advanced reasoning capabilities, so it was routed to our LLM for comprehensive analysis while ensuring any sensitive data was protected.';
+  // Spending analysis
+  if (lowerText.includes('spending') || lowerText.includes('budget')) {
+    return SAMPLE_RESPONSES['spending_analysis'];
+  }
+
+  // Mortgage comparison
+  if (lowerText.includes('mortgage') || (lowerText.includes('fixed') && lowerText.includes('variable'))) {
+    return SAMPLE_RESPONSES['mortgage_compare'];
+  }
+
+  // Retirement strategies
+  if (lowerText.includes('retirement') || lowerText.includes('401k') || lowerText.includes('ira')) {
+    return SAMPLE_RESPONSES['retirement_strategies'];
+  }
+
+  // Compare/analyze complex queries
+  if (lowerText.includes('compare') || lowerText.includes('trade-off') || lowerText.includes('analyze')) {
+    return SAMPLE_RESPONSES['mortgage_compare'];
+  }
+
+  // Default helpful responses without mentioning model type
+  if (model === 'SLM') {
+    return 'Thank you for your question! Based on our banking policies, here\'s what I can tell you:\n\nFor the most accurate and personalized information, I recommend:\n• Checking our FAQ at bank.example.com/help\n• Calling our support line at 1-800-555-BANK\n• Visiting your nearest branch\n\nIs there a specific banking topic I can help you with?';
+  } else {
+    return 'I\'ve analyzed your question and here\'s a comprehensive response:\n\nThis is a nuanced topic that may depend on your specific situation. For personalized guidance:\n• Schedule a consultation with our specialists\n• Review detailed information at bank.example.com\n• Call 1-800-555-BANK for complex inquiries\n\nWould you like me to provide more details on any specific aspect?';
+  }
 }
 
 // Sample queries for the demo - routing decision revealed after selection
