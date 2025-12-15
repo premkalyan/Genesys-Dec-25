@@ -38,7 +38,8 @@ export default function AgentAssistPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5x, 1x, 1.5x, 2x
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastAutoPlayMessageCount = useRef<number>(0); // Track to prevent duplicate auto-sends
+  const autoPlayProcessingRef = useRef<boolean>(false); // Prevent duplicate auto-sends
+  const lastProcessedCustomerMsgId = useRef<string>(''); // Track which customer message we've responded to
 
   // C5: Custom message injection state
   const [showMessageInjector, setShowMessageInjector] = useState(false);
@@ -393,23 +394,33 @@ export default function AgentAssistPage() {
 
   // C4: Auto-play effect - automatically send agent response after customer message
   useEffect(() => {
-    // Only auto-send if we haven't already sent for this message count
-    const currentMessageCount = messages.length;
+    // Find the last customer message
+    const lastCustomerMsg = [...messages].reverse().find(m => m.role === 'customer');
+
+    // Only auto-send if:
+    // 1. Auto-play is on and not paused
+    // 2. We're running and not loading
+    // 3. We have suggestions
+    // 4. There's a customer message we haven't responded to yet
+    // 5. We're not already processing an auto-play response
     const shouldAutoSend = isAutoPlay &&
                            !isPaused &&
                            isRunning &&
                            !isLoading &&
                            aiData.suggestions.length > 0 &&
-                           currentMessageCount > lastAutoPlayMessageCount.current;
+                           lastCustomerMsg &&
+                           lastCustomerMsg.id !== lastProcessedCustomerMsgId.current &&
+                           !autoPlayProcessingRef.current;
 
-    if (shouldAutoSend) {
+    if (shouldAutoSend && lastCustomerMsg) {
       // Clear any existing timeout
       if (autoPlayTimeoutRef.current) {
         clearTimeout(autoPlayTimeoutRef.current);
       }
 
-      // Mark this message count as processed
-      lastAutoPlayMessageCount.current = currentMessageCount;
+      // Mark as processing and track this customer message
+      autoPlayProcessingRef.current = true;
+      lastProcessedCustomerMsgId.current = lastCustomerMsg.id;
 
       // Wait a bit then auto-send agent response
       const delay = applySpeedMultiplier(2000); // 2 seconds at 1x speed
@@ -417,6 +428,8 @@ export default function AgentAssistPage() {
         if (aiData.suggestions.length > 0) {
           handleAgentSend(aiData.suggestions[0]);
         }
+        // Reset processing flag after send completes
+        autoPlayProcessingRef.current = false;
       }, delay);
     }
 
@@ -425,7 +438,7 @@ export default function AgentAssistPage() {
         clearTimeout(autoPlayTimeoutRef.current);
       }
     };
-  }, [isAutoPlay, isPaused, isRunning, isLoading, messages.length, aiData.suggestions, applySpeedMultiplier, handleAgentSend]);
+  }, [isAutoPlay, isPaused, isRunning, isLoading, messages, aiData.suggestions, applySpeedMultiplier, handleAgentSend]);
 
   // Reset demo
   const resetDemo = () => {
@@ -442,7 +455,8 @@ export default function AgentAssistPage() {
     // C4: Reset auto-play state
     setIsAutoPlay(false);
     setIsPaused(false);
-    lastAutoPlayMessageCount.current = 0; // Reset auto-play counter
+    autoPlayProcessingRef.current = false; // Reset processing flag
+    lastProcessedCustomerMsgId.current = ''; // Reset tracked message
     setAiData({
       suggestions: ['Hello! How can I help you today?'],
       knowledgeCards: [],
