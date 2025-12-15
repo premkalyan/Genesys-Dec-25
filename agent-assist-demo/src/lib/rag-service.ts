@@ -212,8 +212,10 @@ export async function getAISuggestions(
     }
 
     const data = await response.json();
+    // Single suggestion for controlled demo flow
+    const suggestions = data.suggestions || [];
     return {
-      suggestions: data.suggestions || [],
+      suggestions: suggestions.slice(0, 1),
       knowledgeCards: data.knowledge_cards || [],
       sentiment: data.sentiment || 'neutral',
       latencyMs: data.latency_ms || 0,
@@ -1323,7 +1325,8 @@ export function getFallbackSuggestions(
   const processedCards = processKnowledgeCards(knowledgeCards, topic, intent, message);
 
   return {
-    suggestions: suggestions.slice(0, 3),
+    // Single suggestion for controlled demo flow - easier to drive the conversation
+    suggestions: suggestions.slice(0, 1),
     knowledgeCards: processedCards,
     sentiment,
     sentimentData, // Enhanced sentiment with confidence, urgency, indicators
